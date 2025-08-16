@@ -88,10 +88,19 @@ model CalendarConnection {
   lastSyncAt  DateTime?
   syncFrequency Int    @default(15) // Sync every 15 minutes
   
+  // Webhook settings for real-time sync
+  subscriptionId String? // Platform webhook subscription ID
+  webhookUrl     String? // Webhook endpoint URL
+  subscriptionExpiresAt DateTime? // When webhook subscription expires
+  
+  // Events imported from this calendar
+  events      CalendarEvent[]
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@unique([providerId, platform, calendarId])
+  @@index([subscriptionId])
   @@map("calendar_connections")
 }
 
@@ -101,6 +110,10 @@ model CalendarEvent {
   // Provider this event belongs to
   providerId      String
   provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  
+  // Source calendar connection
+  connectionId    String
+  connection      CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   
   // Original calendar details
   externalEventId String   // ID from source calendar (Outlook, Google, etc.)
