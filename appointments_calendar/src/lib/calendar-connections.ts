@@ -14,12 +14,12 @@ export class CalendarConnectionService {
       const tokenResponse = await axios.post(
         'https://login.microsoftonline.com/common/oauth2/v2.0/token',
         new URLSearchParams({
-          client_id: process.env.OUTLOOK_CLIENT_ID!,
-          client_secret: process.env.OUTLOOK_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID!,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
           code: authCode,
           grant_type: 'authorization_code',
-          redirect_uri: process.env.OUTLOOK_REDIRECT_URI!,
-          scope: 'https://graph.microsoft.com/calendars.read',
+          redirect_uri: process.env.MICROSOFT_REDIRECT_URI!,
+          scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access',
         }),
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -115,12 +115,12 @@ export class CalendarConnectionService {
       const tokenResponse = await axios.post(
         'https://login.microsoftonline.com/common/oauth2/v2.0/token',
         new URLSearchParams({
-          client_id: process.env.TEAMS_CLIENT_ID!,
-          client_secret: process.env.TEAMS_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID!,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
           code: authCode,
           grant_type: 'authorization_code',
           redirect_uri: process.env.TEAMS_REDIRECT_URI!,
-          scope: 'https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read',
+          scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read https://graph.microsoft.com/OnlineMeetings.ReadWrite offline_access',
         }),
         {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -322,28 +322,36 @@ export class CalendarConnectionService {
   /**
    * Get OAuth authorization URLs
    */
-  static getAuthUrls() {
+  static getAuthUrls(providerId: string) {
+    // Create platform-specific state parameters
+    const outlookState = encodeURIComponent(JSON.stringify({ providerId, platform: 'outlook' }));
+    const teamsState = encodeURIComponent(JSON.stringify({ providerId, platform: 'teams' }));
+    const googleState = encodeURIComponent(JSON.stringify({ providerId, platform: 'google' }));
+
     const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read')}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
+      `scope=${encodeURIComponent('https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&` +
+      `state=${outlookState}&` +
       `response_mode=query`;
 
     const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.TEAMS_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read')}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
+      `scope=${encodeURIComponent('https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&` +
+      `state=${teamsState}&` +
       `response_mode=query`;
 
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
       `response_type=code&` +
       `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}&` +
+      `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email')}&` +
       `access_type=offline&` +
-      `prompt=consent`;
+      `prompt=consent&` +
+      `state=${googleState}`;
 
     return {
       outlook: outlookAuthUrl,
@@ -352,5 +360,33 @@ export class CalendarConnectionService {
       // Apple uses a different authentication method (App-specific passwords)
       apple: null,
     };
+  }
+
+  /**
+   * Generic method to create a calendar connection
+   */
+  static async createConnection(connectionData: {
+    providerId: string;
+    platform: CalendarPlatform;
+    email: string;
+    calendarId: string;
+    accessToken: string;
+    refreshToken?: string;
+    tokenExpiry?: Date | null;
+  }) {
+    const connection = await prisma.calendarConnection.create({
+      data: {
+        providerId: connectionData.providerId,
+        platform: connectionData.platform,
+        email: connectionData.email,
+        calendarId: connectionData.calendarId,
+        accessToken: connectionData.accessToken,
+        refreshToken: connectionData.refreshToken || null,
+        tokenExpiry: connectionData.tokenExpiry || null,
+        isActive: true,
+      },
+    });
+
+    return connection;
   }
 }

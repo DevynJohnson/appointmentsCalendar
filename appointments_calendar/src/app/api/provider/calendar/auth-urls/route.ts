@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
-    await ProviderAuthService.verifyToken(token);
+    const provider = await ProviderAuthService.verifyToken(token);
 
-    const authUrls = CalendarConnectionService.getAuthUrls();
+    const authUrls = CalendarConnectionService.getAuthUrls(provider.id);
 
     return NextResponse.json(authUrls);
   } catch (error) {

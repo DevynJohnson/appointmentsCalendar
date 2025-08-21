@@ -11,8 +11,18 @@ interface AuthUrls {
   apple: null;
 }
 
+interface CalendarConnection {
+  id: string;
+  platform: string;
+  email: string;
+  calendarId: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export default function CalendarConnectPage() {
   const [authUrls, setAuthUrls] = useState<AuthUrls | null>(null);
+  const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAppleForm, setShowAppleForm] = useState(false);
@@ -26,30 +36,90 @@ export default function CalendarConnectPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
+        console.error('No provider token found');
         router.push('/provider/login');
         return;
       }
 
+      console.log('Fetching auth URLs with token:', token.substring(0, 20) + '...');
+      
       const response = await fetch('/api/provider/calendar/auth-urls', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
+      console.log('Auth URLs response status:', response.status);
+      
       if (!response.ok) {
-        throw new Error('Failed to load authentication URLs');
+        const errorText = await response.text();
+        console.error('Auth URLs request failed:', response.status, errorText);
+        throw new Error(`Failed to load authentication URLs: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Auth URLs loaded successfully:', data);
       setAuthUrls(data);
     } catch (err) {
+      console.error('Auth URLs error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load auth URLs');
-    } finally {
-      setLoading(false);
     }
   }, [router]);
 
+  const loadConnections = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      if (!token) return;
+
+      const response = await fetch('/api/provider/calendar/connections', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load calendar connections');
+      }
+
+      const data = await response.json();
+      setConnections(data);
+    } catch (err) {
+      console.error('Failed to load connections:', err);
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([loadAuthUrls(), loadConnections()]);
+    setLoading(false);
+  }, [loadAuthUrls, loadConnections]);
+
   useEffect(() => {
-    loadAuthUrls();
-  }, [loadAuthUrls]);
+    loadData();
+    
+    // Check for OAuth callback parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const successParam = urlParams.get('success');
+    const errorParam = urlParams.get('error');
+    
+    if (successParam === 'google_connected') {
+      setError('');
+      // Show success message and reload connections
+      alert('Google Calendar connected successfully!');
+      setTimeout(() => loadConnections(), 1000);
+    } else if (errorParam) {
+      const errorMessages: { [key: string]: string } = {
+        'oauth_failed': 'OAuth authorization failed',
+        'missing_code': 'Missing authorization code',
+        'invalid_state': 'Invalid OAuth state parameter',
+        'token_exchange_failed': 'Failed to exchange authorization code for tokens',
+        'calendar_access_failed': 'Failed to access calendar information',
+        'callback_failed': 'OAuth callback failed'
+      };
+      setError(errorMessages[errorParam] || 'Unknown OAuth error occurred');
+    }
+    
+    // Clean up URL parameters
+    if (successParam || errorParam) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [loadData, loadConnections]);
 
   const handleConnectApple = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,11 +135,27 @@ export default function CalendarConnectPage() {
         body: JSON.stringify(appleCredentials),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to connect Apple Calendar');
+      const data = await response.json();
+
+      if (data.success) {
+        // Success - reload connections and hide form
+        setShowAppleForm(false);
+        setAppleCredentials({ appleId: '', appPassword: '' });
+        await loadConnections();
+        alert('Apple Calendar connected successfully!');
+        return;
       }
 
-      router.push('/provider/dashboard');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to connect Apple Calendar');
+      }
+
+      // Success - reload connections and hide form
+      setShowAppleForm(false);
+      setAppleCredentials({ appleId: '', appPassword: '' });
+      await loadConnections();
+      alert('Apple Calendar connected successfully!');
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to connect Apple Calendar');
     }
@@ -133,6 +219,51 @@ export default function CalendarConnectPage() {
             {error}
           </div>
         )}
+
+        {/* Connected Calendars */}
+        {connections.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Connected Calendars</h2>
+            <div className="grid gap-4">
+              {connections.map((connection) => (
+                <div key={connection.id} className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="text-2xl">
+                        {connection.platform === 'GOOGLE' && '📅'}
+                        {connection.platform === 'OUTLOOK' && '📧'}
+                        {connection.platform === 'TEAMS' && '💼'}
+                        {connection.platform === 'APPLE' && '🍎'}
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {connection.platform.charAt(0) + connection.platform.slice(1).toLowerCase()} Calendar
+                        </h3>
+                        <p className="text-sm text-gray-600">{connection.email}</p>
+                        <p className="text-xs text-gray-500">
+                          Connected on {new Date(connection.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        connection.isActive 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {connection.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          {connections.length > 0 ? 'Connect Additional Calendars' : 'Connect Your Calendars'}
+        </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Outlook */}
