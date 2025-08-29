@@ -50,9 +50,21 @@ export class CalendarConnectionService {
       });
 
       return connection;
-    } catch (error) {
-      console.error('Failed to connect Outlook calendar:', error);
-      throw new Error('Failed to connect Outlook calendar');
+    } catch (error: unknown) {
+      console.error('Failed to refresh access token:', error);
+      
+      // Log more details about the error for debugging
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number; statusText?: string; data?: unknown; headers?: unknown } };
+        console.error('Token refresh error response:', {
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data,
+          headers: axiosError.response?.headers
+        });
+      }
+      
+      throw new Error(`Failed to refresh access token: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

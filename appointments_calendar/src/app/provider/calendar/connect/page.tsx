@@ -260,7 +260,7 @@ export default function CalendarConnectPage() {
                           type="email"
                           value={appleCredentials.appleId}
                           onChange={(e) => setAppleCredentials(prev => ({ ...prev, appleId: e.target.value }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="your.email@icloud.com"
                           required
                         />
@@ -273,7 +273,7 @@ export default function CalendarConnectPage() {
                           type="password"
                           value={appleCredentials.appPassword}
                           onChange={(e) => setAppleCredentials(prev => ({ ...prev, appPassword: e.target.value }))}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                           placeholder="xxxx-xxxx-xxxx-xxxx"
                           required
                         />

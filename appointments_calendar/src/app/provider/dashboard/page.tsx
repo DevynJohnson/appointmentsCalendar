@@ -106,6 +106,31 @@ export default function ProviderDashboard() {
     }
   };
 
+  const handleSetupWebhooks = async () => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      const response = await fetch('/api/provider/calendar/webhooks', {
+        method: 'PUT',
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to setup webhooks');
+      }
+
+      const result = await response.json();
+      alert(result.message || 'Webhooks setup successfully');
+      
+      // Reload data to show updated webhook status
+      loadDashboardData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Webhook setup failed');
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('providerToken');
     router.push('/provider/login');
@@ -140,6 +165,12 @@ export default function ProviderDashboard() {
                 Sync All Calendars
               </button>
               <button
+                onClick={handleSetupWebhooks}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              >
+                Setup Real-Time Sync
+              </button>
+              <button
                 onClick={handleLogout}
                 className="text-gray-700 hover:text-gray-900 transition-colors"
               >
@@ -161,29 +192,29 @@ export default function ProviderDashboard() {
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-700">Calendar Connections</h3>
+              <h3 className="text-sm font-medium text-gray-900">Calendar Connections</h3>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.activeConnections}/{stats.totalConnections}
               </p>
-              <p className="text-xs text-gray-700 mt-1">Active connections</p>
+              <p className="text-xs text-gray-600 mt-1">Active connections</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-700">Upcoming Events</h3>
+              <h3 className="text-sm font-medium text-gray-900">Upcoming Events</h3>
               <p className="text-2xl font-bold text-gray-900">{stats.upcomingEvents}</p>
-              <p className="text-xs text-gray-700 mt-1">Next 30 days</p>
+              <p className="text-xs text-gray-600 mt-1">Next 30 days</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-700">Total Bookings</h3>
+              <h3 className="text-sm font-medium text-gray-900">Total Bookings</h3>
               <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
-              <p className="text-xs text-gray-700 mt-1">All time</p>
+              <p className="text-xs text-gray-600 mt-1">All time</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-700">Pending Bookings</h3>
+              <h3 className="text-sm font-medium text-gray-900">Pending Bookings</h3>
               <p className="text-2xl font-bold text-orange-600">{stats.pendingBookings}</p>
-              <p className="text-xs text-gray-700 mt-1">Needs attention</p>
+              <p className="text-xs text-gray-600 mt-1">Needs attention</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-700">Quick Actions</h3>
+              <h3 className="text-sm font-medium text-gray-900">Quick Actions</h3>
               <div className="mt-2 space-y-1">
                 <button
                   onClick={() => router.push('/provider/calendar/connect')}
@@ -218,7 +249,7 @@ export default function ProviderDashboard() {
             </div>
             <div className="px-6 py-4">
               {connections.length === 0 ? (
-                <p className="text-gray-700 text-center py-4">
+                <p className="text-gray-900 text-center py-4">
                   No calendar connections. Connect your first calendar to get started.
                 </p>
               ) : (
@@ -233,11 +264,11 @@ export default function ProviderDashboard() {
                           <span className={`inline-block w-2 h-2 rounded-full ${
                             connection.isActive ? 'bg-green-400' : 'bg-red-400'
                           }`}></span>
-                          <span className="font-medium">{connection.platform}</span>
+                          <span className="font-medium text-gray-900">{connection.platform}</span>
                         </div>
-                        <p className="text-sm text-gray-800">{connection.email}</p>
+                        <p className="text-sm text-gray-600">{connection.email}</p>
                         {connection.lastSyncAt && (
-                          <p className="text-xs text-gray-700">
+                          <p className="text-xs text-gray-500">
                             Last sync: {new Date(connection.lastSyncAt).toLocaleString()}
                           </p>
                         )}
@@ -264,7 +295,7 @@ export default function ProviderDashboard() {
             </div>
             <div className="px-6 py-4">
               {upcomingEvents.length === 0 ? (
-                <p className="text-gray-700 text-center py-4">
+                <p className="text-gray-900 text-center py-4">
                   No upcoming events. Sync your calendars to see events.
                 </p>
               ) : (
@@ -274,8 +305,8 @@ export default function ProviderDashboard() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900">{event.title}</h3>
-                          <p className="text-sm text-gray-800">{event.location}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-700">
+                          <p className="text-sm text-gray-600">{event.location}</p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
                             <span>{new Date(event.startTime).toLocaleDateString()}</span>
                             <span>
                               {new Date(event.startTime).toLocaleTimeString([], { 
@@ -298,7 +329,7 @@ export default function ProviderDashboard() {
                             {event.allowBookings ? 'Bookable' : 'Private'}
                           </div>
                           {event.allowBookings && (
-                            <p className="text-xs text-gray-700 mt-1">
+                            <p className="text-xs text-gray-500 mt-1">
                               {event.currentBookings}/{event.maxBookings} booked
                             </p>
                           )}

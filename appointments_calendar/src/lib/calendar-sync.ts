@@ -217,32 +217,12 @@ export class CalendarSyncService {
         }
       );
 
-      // Also fetch Teams meetings specifically
-      const meetingsResponse = await axios.get(
-        'https://graph.microsoft.com/v1.0/me/onlineMeetings',
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          params: {
-            $top: 50,
-          },
-        }
-      );
-
       const events = eventsResponse.data.value || [];
-      const meetings = meetingsResponse.data.value || [];
 
-      // Process calendar events
+      // Process calendar events (Teams meetings will be included in calendar events with isOnlineMeeting=true)
       let processedCount = 0;
       for (const event of events) {
         await this.processTeamsEvent(connection.providerId, event, connection.calendarId, connection.id);
-        processedCount++;
-      }
-
-      // Process Teams meetings that might not be in calendar
-      for (const meeting of meetings) {
-        await this.processTeamsMeeting(connection.providerId, meeting, connection.calendarId, connection.id);
         processedCount++;
       }
 
@@ -272,34 +252,109 @@ export class CalendarSyncService {
   }) {
     try {
       // Decode the stored credentials
+      console.log('🍎 Apple sync - checking stored credentials, token length:', connection.accessToken?.length);
+      console.log('🔐 Stored accessToken:', connection.accessToken?.substring(0, 20) + '...');
+      
       const credentials = Buffer.from(connection.accessToken, 'base64').toString('utf-8');
+      console.log('🔓 Decoded credentials string:', credentials);
+      
       const [appleId, appPassword] = credentials.split(':');
+      console.log('🆔 Parsed Apple ID:', appleId);
+      console.log('🔑 App password length:', appPassword?.length);
 
-      // CalDAV endpoint for iCloud
-      const calDavUrl = `https://caldav.icloud.com/${appleId}/calendars/`;
+      if (!appleId || !appPassword) {
+        throw new Error('Apple ID and App-specific password are required. Please update your credentials in the settings.');
+      }
 
-      // In a production app, you'd use a proper CalDAV library
-      // For now, we'll make a basic request to get calendar data
-      await axios({
+      console.log(`🍎 Attempting CalDAV connection for Apple ID: ${appleId}`);
+
+      // Apple CalDAV requires a specific URL format and discovery process
+      // First, try the well-known CalDAV discovery endpoint
+      const calDavDiscoveryUrl = `https://caldav.icloud.com/.well-known/caldav`;
+      const principalUrl = `https://caldav.icloud.com/${appleId}/principal/`;
+      
+      console.log(`🔗 CalDAV Discovery URL: ${calDavDiscoveryUrl}`);
+      console.log(`🔗 Principal URL: ${principalUrl}`);
+
+      // Try a basic OPTIONS request first to test authentication
+      console.log(`🧪 Testing authentication with OPTIONS request...`);
+      const optionsResponse = await axios({
+        method: 'OPTIONS',
+        url: 'https://caldav.icloud.com/',
+        auth: {
+          username: appleId,
+          password: appPassword,
+        },
+        timeout: 15000
+      });
+
+      console.log(`✅ OPTIONS response status: ${optionsResponse.status}`);
+      console.log(`📋 OPTIONS response headers:`, optionsResponse.headers);
+
+      // Now let's try the CalDAV discovery process
+      // First, get the current user principal
+      console.log(`🔍 Discovering current user principal...`);
+      
+      const principalDiscoveryResponse = await axios({
         method: 'PROPFIND',
-        url: calDavUrl,
+        url: 'https://caldav.icloud.com/',
         auth: {
           username: appleId,
           password: appPassword,
         },
         headers: {
           'Content-Type': 'application/xml; charset=utf-8',
-          'Depth': '1',
+          'Depth': '0',
         },
         data: `<?xml version="1.0" encoding="utf-8" ?>
                <propfind xmlns="DAV:">
                  <prop>
-                   <getcontenttype/>
-                   <getetag/>
+                   <current-user-principal/>
                  </prop>
                </propfind>`,
-        timeout: 10000,
+        timeout: 15000
       });
+
+      console.log(`✅ Principal discovery status: ${principalDiscoveryResponse.status}`);
+      console.log(`📋 Principal discovery response:`, principalDiscoveryResponse.data);
+
+      // Parse the principal URL from the response
+      const responseText = principalDiscoveryResponse.data;
+      const principalMatch = responseText.match(/<href[^>]*>([^<]+)<\/href>/);
+      const discoveredPrincipal = principalMatch ? principalMatch[1] : null;
+      
+      if (!discoveredPrincipal) {
+        throw new Error('Could not discover principal URL from Apple CalDAV server');
+      }
+      
+      const actualPrincipalUrl = `https://caldav.icloud.com${discoveredPrincipal}`;
+      console.log(`🎯 Discovered principal URL: ${actualPrincipalUrl}`);
+
+      // Now try the PROPFIND request to the DISCOVERED principal URL
+      console.log(`🔍 Attempting PROPFIND to discovered principal URL...`);
+      
+      const response = await axios({
+        method: 'PROPFIND',
+        url: actualPrincipalUrl,
+        auth: {
+          username: appleId,
+          password: appPassword,
+        },
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Depth': '0',
+        },
+        data: `<?xml version="1.0" encoding="utf-8" ?>
+               <propfind xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
+                 <prop>
+                   <C:calendar-home-set/>
+                 </prop>
+               </propfind>`,
+        timeout: 15000
+      });
+
+      console.log(`✅ CalDAV response status: ${response.status}`);
+      console.log(`📋 CalDAV response headers:`, response.headers);
 
       // Update last sync time (actual event parsing would require a CalDAV library)
       await prisma.calendarConnection.update({
@@ -314,9 +369,35 @@ export class CalendarSyncService {
         eventsProcessed: 0,
         note: 'Apple Calendar sync requires CalDAV parsing - consider using a CalDAV library'
       };
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Apple calendar sync failed:', error);
-      throw new Error('Apple calendar sync failed. Please check your credentials.');
+      
+      // Provide more specific error messages based on the HTTP status code
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError.response?.status === 403) {
+          throw new Error('Apple calendar authentication failed (403 Forbidden). Please check: 1) Your app-specific password is correct and not expired, 2) Two-factor authentication is enabled on your Apple ID, 3) CalDAV access is enabled in your iCloud settings.');
+        } else if (axiosError.response?.status === 401) {
+          throw new Error('Apple calendar authentication failed (401 Unauthorized). Please verify your Apple ID and app-specific password.');
+        } else if (axiosError.response?.status === 404) {
+          throw new Error('Apple calendar request failed (404 Not Found). Please check your Apple ID format and ensure CalDAV is enabled.');
+        }
+      }
+      
+      if (error && typeof error === 'object' && 'code' in error) {
+        const networkError = error as { code?: string };
+        if (networkError.code === 'ENOTFOUND' || networkError.code === 'ECONNREFUSED') {
+          throw new Error('Unable to connect to Apple CalDAV server. Please check your internet connection.');
+        }
+      }
+      
+      if (error instanceof Error && error.message.includes('401')) {
+        throw new Error('Apple calendar authentication failed. Please verify your Apple ID and app-specific password.');
+      } else if (error instanceof Error && error.message.includes('400')) {
+        throw new Error('Apple calendar request failed. Please check your Apple ID format and ensure CalDAV is enabled.');
+      } else {
+        throw new Error('Apple calendar sync failed. Please check your credentials and try again.');
+      }
     }
   }
 
