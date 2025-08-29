@@ -123,7 +123,6 @@ export class WebhookSubscriptionService {
         }
       );
 
-      const resourceId = response.data.resourceId;
       const expiresAt = new Date(parseInt(response.data.expiration));
 
       // Update the connection with subscription details

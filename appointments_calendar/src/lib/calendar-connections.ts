@@ -320,6 +320,39 @@ export class CalendarConnectionService {
   }
 
   /**
+   * Generic method to create a calendar connection
+   */
+  static async createConnection(connectionData: {
+    providerId: string;
+    platform: CalendarPlatform;
+    email: string;
+    calendarId: string;
+    accessToken: string;
+    refreshToken?: string | null;
+    tokenExpiry?: Date | null;
+  }) {
+    try {
+      const connection = await prisma.calendarConnection.create({
+        data: {
+          providerId: connectionData.providerId,
+          platform: connectionData.platform,
+          email: connectionData.email,
+          calendarId: connectionData.calendarId,
+          accessToken: connectionData.accessToken,
+          refreshToken: connectionData.refreshToken,
+          tokenExpiry: connectionData.tokenExpiry,
+          isActive: true,
+        },
+      });
+
+      return connection;
+    } catch (error) {
+      console.error('Failed to create calendar connection:', error);
+      throw new Error('Failed to create calendar connection');
+    }
+  }
+
+  /**
    * Get OAuth authorization URLs
    */
   static getAuthUrls() {

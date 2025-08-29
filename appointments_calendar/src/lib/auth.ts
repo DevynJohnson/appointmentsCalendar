@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 export async function createMagicLink(
   email: string, 
   purpose: 'LOGIN' | 'BOOK_APPOINTMENT' | 'MODIFY_BOOKING',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any
 ) {
   const token = crypto.randomBytes(32).toString('hex');

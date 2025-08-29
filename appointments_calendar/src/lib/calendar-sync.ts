@@ -1,5 +1,5 @@
 // Enhanced calendar synchronization service for multiple platforms
-import { PrismaClient, CalendarPlatform, CalendarConnection } from '@prisma/client';
+import { PrismaClient, CalendarPlatform } from '@prisma/client';
 import axios from 'axios';
 import { LocationService } from './location';
 import { CalendarConnectionService } from './calendar-connections';
@@ -100,7 +100,7 @@ export class CalendarSyncService {
       // Process and store events
       let processedCount = 0;
       for (const event of events) {
-        await this.processOutlookEvent(connection.providerId, event, connection.calendarId);
+        await this.processOutlookEvent(connection.providerId, event, connection.calendarId, connection.id);
         processedCount++;
       }
 
@@ -161,7 +161,7 @@ export class CalendarSyncService {
       // Process and store events
       let processedCount = 0;
       for (const event of events) {
-        await this.processGoogleEvent(connection.providerId, event, connection.calendarId);
+        await this.processGoogleEvent(connection.providerId, event, connection.calendarId, connection.id);
         processedCount++;
       }
 
@@ -236,13 +236,13 @@ export class CalendarSyncService {
       // Process calendar events
       let processedCount = 0;
       for (const event of events) {
-        await this.processTeamsEvent(connection.providerId, event, connection.calendarId);
+        await this.processTeamsEvent(connection.providerId, event, connection.calendarId, connection.id);
         processedCount++;
       }
 
       // Process Teams meetings that might not be in calendar
       for (const meeting of meetings) {
-        await this.processTeamsMeeting(connection.providerId, meeting, connection.calendarId);
+        await this.processTeamsMeeting(connection.providerId, meeting, connection.calendarId, connection.id);
         processedCount++;
       }
 
@@ -334,7 +334,8 @@ export class CalendarSyncService {
       location?: { displayName?: string };
       isAllDay?: boolean;
     }, 
-    calendarId: string
+    calendarId: string,
+    connectionId: string
   ) {
     const startTime = new Date(event.start.dateTime || event.start.date || '');
     const endTime = new Date(event.end.dateTime || event.end.date || '');
@@ -362,6 +363,7 @@ export class CalendarSyncService {
       },
       create: {
         providerId,
+        connectionId,
         externalEventId: event.id,
         platform: CalendarPlatform.OUTLOOK,
         calendarId,
@@ -390,7 +392,8 @@ export class CalendarSyncService {
       end: { dateTime?: string; date?: string };
       location?: string;
     },
-    calendarId: string
+    calendarId: string,
+    connectionId: string
   ) {
     const startTime = new Date(event.start.dateTime || event.start.date || '');
     const endTime = new Date(event.end.dateTime || event.end.date || '');
@@ -418,6 +421,7 @@ export class CalendarSyncService {
       },
       create: {
         providerId,
+        connectionId,
         externalEventId: event.id,
         platform: CalendarPlatform.GOOGLE,
         calendarId,
@@ -449,7 +453,8 @@ export class CalendarSyncService {
       isOnlineMeeting?: boolean;
       onlineMeetingUrl?: string;
     },
-    calendarId: string
+    calendarId: string,
+    connectionId: string
   ) {
     const startTime = new Date(event.start.dateTime || event.start.date || '');
     const endTime = new Date(event.end.dateTime || event.end.date || '');
@@ -483,6 +488,7 @@ export class CalendarSyncService {
       },
       create: {
         providerId,
+        connectionId,
         externalEventId: event.id,
         platform: CalendarPlatform.TEAMS,
         calendarId,
@@ -510,7 +516,8 @@ export class CalendarSyncService {
       endDateTime?: string;
       joinWebUrl?: string;
     },
-    calendarId: string
+    calendarId: string,
+    connectionId: string
   ) {
     if (!meeting.startDateTime || !meeting.endDateTime) {
       return; // Skip meetings without proper time data
@@ -542,6 +549,7 @@ export class CalendarSyncService {
       },
       create: {
         providerId,
+        connectionId,
         externalEventId: meeting.id,
         platform: CalendarPlatform.TEAMS,
         calendarId: `${calendarId}-meeting`,

@@ -116,7 +116,7 @@ export default function ProviderDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <p className="mt-4 text-gray-800">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -130,7 +130,7 @@ export default function ProviderDashboard() {
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Provider Dashboard</h1>
-              <p className="text-gray-600">Manage your calendar connections and appointments</p>
+              <p className="text-gray-800">Manage your calendar connections and appointments</p>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -161,29 +161,29 @@ export default function ProviderDashboard() {
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Calendar Connections</h3>
+              <h3 className="text-sm font-medium text-gray-700">Calendar Connections</h3>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.activeConnections}/{stats.totalConnections}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Active connections</p>
+              <p className="text-xs text-gray-700 mt-1">Active connections</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Upcoming Events</h3>
+              <h3 className="text-sm font-medium text-gray-700">Upcoming Events</h3>
               <p className="text-2xl font-bold text-gray-900">{stats.upcomingEvents}</p>
-              <p className="text-xs text-gray-500 mt-1">Next 30 days</p>
+              <p className="text-xs text-gray-700 mt-1">Next 30 days</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Total Bookings</h3>
+              <h3 className="text-sm font-medium text-gray-700">Total Bookings</h3>
               <p className="text-2xl font-bold text-gray-900">{stats.totalBookings}</p>
-              <p className="text-xs text-gray-500 mt-1">All time</p>
+              <p className="text-xs text-gray-700 mt-1">All time</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Pending Bookings</h3>
+              <h3 className="text-sm font-medium text-gray-700">Pending Bookings</h3>
               <p className="text-2xl font-bold text-orange-600">{stats.pendingBookings}</p>
-              <p className="text-xs text-gray-500 mt-1">Needs attention</p>
+              <p className="text-xs text-gray-700 mt-1">Needs attention</p>
             </div>
             <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Quick Actions</h3>
+              <h3 className="text-sm font-medium text-gray-700">Quick Actions</h3>
               <div className="mt-2 space-y-1">
                 <button
                   onClick={() => router.push('/provider/calendar/connect')}
@@ -218,7 +218,7 @@ export default function ProviderDashboard() {
             </div>
             <div className="px-6 py-4">
               {connections.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-gray-700 text-center py-4">
                   No calendar connections. Connect your first calendar to get started.
                 </p>
               ) : (
@@ -235,9 +235,9 @@ export default function ProviderDashboard() {
                           }`}></span>
                           <span className="font-medium">{connection.platform}</span>
                         </div>
-                        <p className="text-sm text-gray-600">{connection.email}</p>
+                        <p className="text-sm text-gray-800">{connection.email}</p>
                         {connection.lastSyncAt && (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-700">
                             Last sync: {new Date(connection.lastSyncAt).toLocaleString()}
                           </p>
                         )}
@@ -264,7 +264,7 @@ export default function ProviderDashboard() {
             </div>
             <div className="px-6 py-4">
               {upcomingEvents.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-gray-700 text-center py-4">
                   No upcoming events. Sync your calendars to see events.
                 </p>
               ) : (
@@ -274,8 +274,8 @@ export default function ProviderDashboard() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900">{event.title}</h3>
-                          <p className="text-sm text-gray-600">{event.location}</p>
-                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                          <p className="text-sm text-gray-800">{event.location}</p>
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-700">
                             <span>{new Date(event.startTime).toLocaleDateString()}</span>
                             <span>
                               {new Date(event.startTime).toLocaleTimeString([], { 
@@ -298,7 +298,7 @@ export default function ProviderDashboard() {
                             {event.allowBookings ? 'Bookable' : 'Private'}
                           </div>
                           {event.allowBookings && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-gray-700 mt-1">
                               {event.currentBookings}/{event.maxBookings} booked
                             </p>
                           )}
