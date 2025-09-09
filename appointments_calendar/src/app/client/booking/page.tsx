@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface Slot {
@@ -35,6 +35,14 @@ interface ApiResponse {
 }
 
 export default function ClientBooking() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading booking page...</div>}>
+      <ClientBookingContent />
+    </Suspense>
+  );
+}
+
+function ClientBookingContent() {
   const searchParams = useSearchParams();
   const urlProviderId = searchParams.get('providerId');
   
@@ -80,7 +88,7 @@ export default function ClientBooking() {
         if (value) params.append(key, value);
       });
 
-      const response = await fetch(`/api/client/open-slots-v2?${params}`);
+      const response = await fetch(`/api/client/open-slots?${params}`);
       const data: ApiResponse = await response.json();
       
       if (data.success) {
@@ -117,7 +125,7 @@ export default function ClientBooking() {
       const isAutoSlot = selectedSlot.eventTitle === 'Available Time' || 
                         selectedSlot.eventTitle.includes('Auto Generated');
       
-      const response = await fetch('/api/client/book-appointment-v2', {
+      const response = await fetch('/api/client/book-appointment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

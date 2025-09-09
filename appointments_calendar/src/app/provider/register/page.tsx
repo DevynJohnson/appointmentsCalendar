@@ -1,8 +1,9 @@
 // Provider registration page
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getPasswordStrength } from '@/lib/validation';
 
 export default function ProviderRegisterPage() {
   const [formData, setFormData] = useState({
@@ -17,7 +18,13 @@ export default function ProviderRegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState(getPasswordStrength(''));
   const router = useRouter();
+
+  // Update password strength when password changes
+  useEffect(() => {
+    setPasswordStrength(getPasswordStrength(formData.password));
+  }, [formData.password]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,8 +37,9 @@ export default function ProviderRegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    // Check password strength client-side
+    if (!passwordStrength.requirements.every((req: { test: boolean; label: string }) => req.test)) {
+      setError('Password does not meet all security requirements');
       setLoading(false);
       return;
     }
@@ -56,7 +64,14 @@ export default function ProviderRegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
+        // Handle detailed password validation errors
+        if (data.details && Array.isArray(data.details)) {
+          setError(data.details.join(', '));
+        } else {
+          setError(data.error || 'Registration failed');
+        }
+        setLoading(false);
+        return;
       }
 
       // Redirect to login page with success message
@@ -153,6 +168,51 @@ export default function ProviderRegisterPage() {
                 onChange={handleChange}
                 className="mt-1 appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
+              
+              {/* Password Strength Meter */}
+              {formData.password && (
+                <div className="mt-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Password strength:</span>
+                    <span className={`font-medium ${
+                      passwordStrength.label === 'Strong' ? 'text-green-600' :
+                      passwordStrength.label === 'Medium' ? 'text-yellow-600' :
+                      'text-red-600'
+                    }`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${passwordStrength.color}`}
+                      style={{ width: `${passwordStrength.percentage}%` }}
+                    ></div>
+                  </div>
+                  
+                  {/* Password Requirements */}
+                  <div className="mt-2 space-y-1">
+                    {passwordStrength.requirements.map((req: { test: boolean; label: string }, index: number) => (
+                      <div key={index} className="flex items-center text-xs">
+                        <span className={`mr-2 ${req.test ? 'text-green-500' : 'text-gray-400'}`}>
+                          {req.test ? '✓' : '○'}
+                        </span>
+                        <span className={req.test ? 'text-green-700' : 'text-gray-600'}>
+                          {req.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Show errors if any */}
+                  {passwordStrength.errors.length > 0 && (
+                    <div className="mt-2 text-xs text-red-600">
+                      {passwordStrength.errors.map((error: string, index: number) => (
+                        <div key={index}>• {error}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div>

@@ -1,160 +1,109 @@
-// prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  firstName   String?  // Optional - can be collected during booking
-  lastName    String?  // Optional - can be collected during booking
-  phone       String?
-  
-  // Magic link authentication
+  id            String    @id @default(cuid())
+  email         String    @unique
+  firstName     String?
+  lastName      String?
+  phone         String?
   emailVerified DateTime?
   lastLoginAt   DateTime?
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Customer bookings
-  bookings    Booking[]
-  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+
   @@map("users")
 }
 
 model Provider {
-  id          String   @id @default(cuid())
-  name        String
-  email       String   @unique
-  phone       String
-  
-  // Provider authentication & profile
-  passwordHash String?  // For provider login
-  isActive    Boolean  @default(true)
-  
-  // Business details
-  company     String?
-  title       String?  // "Senior Partner", "Sales Rep", etc.
-  bio         String?
-  website     String?
-  
-  // Booking settings
-  defaultBookingDuration Int @default(60) // Default appointment length in minutes
-  bufferTime  Int      @default(15)       // Buffer between appointments
-  advanceBookingDays Int @default(30)     // How far ahead customers can book
-  
-  // Calendar integrations for this provider
-  calendarConnections CalendarConnection[]
-  
-  // Imported calendar events (showing where provider will be)
-  calendarEvents CalendarEvent[]
-  
-  // Customer bookings
-  bookings    Booking[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id                     String               @id @default(cuid())
+  name                   String
+  email                  String               @unique
+  phone                  String
+  passwordHash           String?
+  isActive               Boolean              @default(true)
+  company                String?
+  title                  String?
+  bio                    String?
+  website                String?
+  defaultBookingDuration Int                  @default(60)
+  bufferTime             Int                  @default(15)
+  advanceBookingDays     Int                  @default(30)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  bookings               Booking[]
+  calendarConnections    CalendarConnection[]
+  calendarEvents         CalendarEvent[]
+
   @@map("providers")
 }
 
 model CalendarConnection {
-  id          String   @id @default(cuid())
-  
-  providerId  String
-  provider    Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  
-  // Calendar platform
-  platform    CalendarPlatform
-  
-  // Connection details
-  email       String
-  calendarId  String   // Platform-specific calendar ID
-  
-  // OAuth tokens for API access
-  accessToken String
-  refreshToken String?
-  tokenExpiry DateTime?
-  
-  // Sync settings
-  isActive    Boolean  @default(true)
-  lastSyncAt  DateTime?
-  syncFrequency Int    @default(15) // Sync every 15 minutes
-  
-  // Webhook settings for real-time sync
-  subscriptionId String? // Platform webhook subscription ID
-  webhookUrl     String? // Webhook endpoint URL
-  subscriptionExpiresAt DateTime? // When webhook subscription expires
-  
-  // Events imported from this calendar
-  events      CalendarEvent[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  id                    String           @id @default(cuid())
+  providerId            String
+  platform              CalendarPlatform
+  email                 String
+  calendarId            String
+  calendarName          String?
+  accessToken           String
+  refreshToken          String?
+  tokenExpiry           DateTime?
+  isDefaultForBookings  Boolean          @default(false)
+  syncEvents            Boolean          @default(true)
+  allowBookings         Boolean          @default(true)
+  isActive              Boolean          @default(true)
+  lastSyncAt            DateTime?
+  syncFrequency         Int              @default(15)
+  subscriptionId        String?
+  webhookUrl            String?
+  subscriptionExpiresAt DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  provider              Provider         @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  events                CalendarEvent[]
+
   @@unique([providerId, platform, calendarId])
   @@index([subscriptionId])
+  @@index([providerId, isDefaultForBookings])
   @@map("calendar_connections")
 }
 
 model CalendarEvent {
-  id              String   @id @default(cuid())
-  
-  // Provider this event belongs to
-  providerId      String
-  provider        Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  
-  // Source calendar connection
-  connectionId    String
-  connection      CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
-  
-  // Original calendar details
-  externalEventId String   // ID from source calendar (Outlook, Google, etc.)
-  platform        CalendarPlatform
-  calendarId      String   // Which connected calendar this came from
-  
-  // Event details
-  title           String
-  description     String?
-  
-  // Time details
-  startTime       DateTime
-  endTime         DateTime
-  isAllDay        Boolean  @default(false)
-  
-  // Location information (extracted from calendar event)
-  location        String?  // Free text from calendar
-  
-  // Parsed location data (if we can extract it)
-  city            String?
-  state           String?
-  address         String?
-  lat             Float?
-  lng             Float?
-  
-  // Booking availability during this event
-  allowBookings   Boolean  @default(false) // Provider can enable/disable booking for each event
-  maxBookings     Int      @default(1)     // How many appointments can be booked during this event
-  
-  // Service types available during this time/location
-  availableServices String[] @default([])  // ["consultation", "maintenance", "emergency"]
-  
-  // Bookings made for this calendar event
-  bookings        Booking[]
-  
-  // Sync tracking
-  lastSyncAt      DateTime @default(now())
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
+  id                String             @id @default(cuid())
+  providerId        String
+  connectionId      String
+  externalEventId   String
+  platform          CalendarPlatform
+  calendarId        String
+  title             String
+  description       String?
+  startTime         DateTime
+  endTime           DateTime
+  isAllDay          Boolean            @default(false)
+  location          String?
+  city              String?
+  state             String?
+  address           String?
+  lat               Float?
+  lng               Float?
+  allowBookings     Boolean            @default(false)
+  maxBookings       Int                @default(1)
+  availableServices String[]           @default([])
+  lastSyncAt        DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  bookings          Booking[]
+  connection        CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  provider          Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
   @@unique([externalEventId, platform, calendarId])
   @@index([providerId, startTime])
   @@index([startTime, endTime])
@@ -163,48 +112,48 @@ model CalendarEvent {
 }
 
 model Booking {
-  id              String      @id @default(cuid())
-  
-  // Customer information
+  id              String        @id @default(cuid())
   customerId      String
-  customer        User        @relation(fields: [customerId], references: [id])
-  
-  // Provider information
   providerId      String
-  provider        Provider    @relation(fields: [providerId], references: [id])
-  
-  // Calendar event this booking is associated with
   calendarEventId String
-  calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id])
-  
-  // Appointment details
   scheduledAt     DateTime
-  duration        Int         // Duration in minutes
+  duration        Int
   status          BookingStatus @default(PENDING)
-  
-  // Customer's location (for provider reference)
   customerAddress String
   customerCity    String
   customerState   String
   customerZipCode String?
   customerLat     Float?
   customerLng     Float?
-  
-  // Service details
   serviceType     String
   notes           String?
-  
-  // Pricing
   estimatedCost   Float?
   finalCost       Float?
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id])
+  customer        User          @relation(fields: [customerId], references: [id])
+  provider        Provider      @relation(fields: [providerId], references: [id])
+
   @@index([scheduledAt])
   @@index([providerId, scheduledAt])
   @@index([calendarEventId])
   @@map("bookings")
+}
+
+model MagicLink {
+  id        String           @id @default(cuid())
+  email     String
+  token     String           @unique
+  purpose   MagicLinkPurpose
+  data      Json?
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([token])
+  @@index([email, expiresAt])
+  @@map("magic_links")
 }
 
 enum CalendarPlatform {
@@ -213,29 +162,6 @@ enum CalendarPlatform {
   TEAMS
   APPLE
   OTHER
-}
-
-// Add magic link model for secure authentication
-model MagicLink {
-  id          String   @id @default(cuid())
-  email       String
-  token       String   @unique
-  
-  // What the magic link is for
-  purpose     MagicLinkPurpose
-  
-  // Optional data payload (for booking details)
-  data        Json?
-  
-  // Security
-  expiresAt   DateTime
-  usedAt      DateTime?
-  
-  createdAt   DateTime @default(now())
-  
-  @@index([token])
-  @@index([email, expiresAt])
-  @@map("magic_links")
 }
 
 enum MagicLinkPurpose {

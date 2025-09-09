@@ -249,9 +249,17 @@ export default function ProviderDashboard() {
             </div>
             <div className="px-6 py-4">
               {connections.length === 0 ? (
-                <p className="text-gray-900 text-center py-4">
-                  No calendar connections. Connect your first calendar to get started.
-                </p>
+                <div className="text-center py-6">
+                  <p className="text-gray-900 mb-4">
+                    No calendar connections. Connect your first calendar to get started.
+                  </p>
+                  <button
+                    onClick={() => router.push('/provider/calendar/connect')}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                  >
+                    📅 Connect Calendar
+                  </button>
+                </div>
               ) : (
                 <div className="space-y-3">
                   {connections.map((connection) => (

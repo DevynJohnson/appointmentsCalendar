@@ -54,7 +54,7 @@ export default function ProviderSettings() {
         daysAhead: '7',
       });
 
-      const response = await fetch(`/api/client/open-slots-v2?${params}`);
+      const response = await fetch(`/api/client/open-slots?${params}`);
       const data = await response.json();
       setTestResults(data);
     } catch (error) {

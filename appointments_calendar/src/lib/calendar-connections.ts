@@ -1,8 +1,18 @@
 // Multi-calendar connection service
 import { PrismaClient, CalendarPlatform } from '@prisma/client';
 import axios from 'axios';
+import { AppleCalendarService } from './apple-calendar';
 
 const prisma = new PrismaClient();
+
+export interface AvailableCalendar {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  canWrite?: boolean;
+  color?: string;
+}
 
 export class CalendarConnectionService {
   /**
@@ -170,55 +180,17 @@ export class CalendarConnectionService {
   }
 
   /**
-   * Connect an Apple iCloud calendar (using CalDAV)
+   * Connect an Apple iCloud calendar (using modern CalDAV with tsdav)
    */
   static async connectAppleCalendar(
     providerId: string, 
     appleId: string, 
     appSpecificPassword: string
   ) {
-    try {
-      // Apple Calendar uses CalDAV, not OAuth
-      // We'll store the credentials securely for CalDAV access
-      
-      // Test the connection first
-      const calDavUrl = `https://caldav.icloud.com/${appleId}/calendars/`;
-      
-      // Basic auth test (you might want to use a CalDAV library in production)
-      const testResponse = await axios.get(calDavUrl, {
-        auth: {
-          username: appleId,
-          password: appSpecificPassword,
-        },
-        headers: {
-          'Content-Type': 'application/xml; charset=utf-8',
-        },
-        timeout: 10000,
-      });
-
-      if (testResponse.status !== 200) {
-        throw new Error('Failed to authenticate with Apple Calendar');
-      }
-
-      // Store the connection (Note: In production, encrypt the password)
-      const connection = await prisma.calendarConnection.create({
-        data: {
-          providerId,
-          platform: CalendarPlatform.APPLE,
-          email: appleId,
-          calendarId: 'primary',
-          accessToken: Buffer.from(`${appleId}:${appSpecificPassword}`).toString('base64'),
-          refreshToken: null, // Apple doesn't use refresh tokens
-          tokenExpiry: null, // App-specific passwords don't expire
-          isActive: true,
-        },
-      });
-
-      return connection;
-    } catch (error) {
-      console.error('Failed to connect Apple calendar:', error);
-      throw new Error('Failed to connect Apple calendar. Please check your Apple ID and App-Specific Password.');
-    }
+    return AppleCalendarService.connectAppleCalendar(providerId, {
+      appleId,
+      appSpecificPassword,
+    });
   }
   static async getProviderConnections(providerId: string) {
     return await prisma.calendarConnection.findMany({
@@ -365,7 +337,7 @@ export class CalendarConnectionService {
   }
 
   /**
-   * Get OAuth authorization URLs
+   * Get OAuth authorization URLs (legacy method - kept for compatibility)
    */
   static getAuthUrls() {
     const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
@@ -397,5 +369,259 @@ export class CalendarConnectionService {
       // Apple uses a different authentication method (App-specific passwords)
       apple: null,
     };
+  }
+
+  /**
+   * Get OAuth authorization URLs with provider context (includes state parameter)
+   */
+  static getAuthUrlsWithProvider(providerId: string) {
+    const outlookStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'outlook' }));
+    const teamsStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'teams' }));
+    const googleStateParam = encodeURIComponent(JSON.stringify({ providerId }));
+    
+    const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+      `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
+      `response_type=code&` +
+      `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
+      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read')}&` +
+      `state=${outlookStateParam}&` +
+      `response_mode=query`;
+
+    const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+      `client_id=${process.env.TEAMS_CLIENT_ID}&` +
+      `response_type=code&` +
+      `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
+      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read')}&` +
+      `state=${teamsStateParam}&` +
+      `response_mode=query`;
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
+      `response_type=code&` +
+      `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI!)}&` +
+      `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}&` +
+      `state=${googleStateParam}&` +
+      `access_type=offline&` +
+      `prompt=consent`;
+
+    return {
+      outlook: outlookAuthUrl,
+      teams: teamsAuthUrl,
+      google: googleAuthUrl,
+      // Apple uses a different authentication method (App-specific passwords)
+      apple: null,
+    };
+  }
+
+  /**
+   * Fetch available calendars for Google
+   */
+  static async getGoogleCalendars(accessToken: string): Promise<AvailableCalendar[]> {
+    try {
+      const response = await axios.get(
+        'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            minAccessRole: 'reader',
+            showHidden: false,
+          }
+        }
+      );
+
+      return response.data.items.map((calendar: {
+        id: string;
+        summary?: string;
+        summaryOverride?: string;
+        description?: string;
+        primary?: boolean;
+        accessRole?: string;
+        backgroundColor?: string;
+      }) => ({
+        id: calendar.id,
+        name: calendar.summary || calendar.summaryOverride || 'Unnamed Calendar',
+        description: calendar.description,
+        isDefault: calendar.primary || false,
+        canWrite: calendar.accessRole === 'owner' || calendar.accessRole === 'writer',
+        color: calendar.backgroundColor,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch Google calendars:', error);
+      throw new Error('Failed to fetch Google calendars');
+    }
+  }
+
+  /**
+   * Fetch available calendars for Outlook
+   */
+  static async getOutlookCalendars(accessToken: string): Promise<AvailableCalendar[]> {
+    try {
+      const response = await axios.get(
+        'https://graph.microsoft.com/v1.0/me/calendars',
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: {
+            $select: 'id,name,color,isDefaultCalendar,canEdit,canShare,owner'
+          }
+        }
+      );
+
+      return response.data.value.map((calendar: {
+        id: string;
+        name?: string;
+        color?: string;
+        isDefaultCalendar?: boolean;
+        canEdit?: boolean;
+      }) => ({
+        id: calendar.id,
+        name: calendar.name || 'Unnamed Calendar',
+        isDefault: calendar.isDefaultCalendar || false,
+        canWrite: calendar.canEdit || false,
+        color: calendar.color,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch Outlook calendars:', error);
+      throw new Error('Failed to fetch Outlook calendars');
+    }
+  }
+
+  /**
+   * Fetch available calendars for Teams (uses Outlook API)
+   */
+  static async getTeamsCalendars(accessToken: string): Promise<AvailableCalendar[]> {
+    // Teams uses the same API as Outlook for calendars
+    return this.getOutlookCalendars(accessToken);
+  }
+
+  /**
+   * Fetch available calendars for Apple using modern CalDAV
+   */
+  static async getAppleCalendars(email: string, appPassword: string): Promise<AvailableCalendar[]> {
+    try {
+      const appleCalendars = await AppleCalendarService.getAvailableCalendars({
+        appleId: email,
+        appSpecificPassword: appPassword,
+      });
+
+      return appleCalendars.map(calendar => ({
+        id: calendar.url.split('/').pop() || 'unknown',
+        name: calendar.displayName,
+        description: calendar.description,
+        isDefault: calendar.displayName.toLowerCase().includes('calendar'),
+        canWrite: true,
+        color: calendar.calendarColor,
+      }));
+    } catch (error) {
+      console.error('Failed to fetch Apple calendars:', error);
+      // Fallback to basic calendar if fetch fails
+      return [
+        {
+          id: 'primary',
+          name: 'Primary Calendar',
+          isDefault: true,
+          canWrite: true,
+        }
+      ];
+    }
+  }
+
+  /**
+   * Get available calendars for any platform
+   */
+  static async getAvailableCalendars(
+    platform: CalendarPlatform,
+    accessToken: string,
+    email?: string,
+    appPassword?: string
+  ): Promise<AvailableCalendar[]> {
+    switch (platform) {
+      case CalendarPlatform.GOOGLE:
+        return this.getGoogleCalendars(accessToken);
+      case CalendarPlatform.OUTLOOK:
+        return this.getOutlookCalendars(accessToken);
+      case CalendarPlatform.TEAMS:
+        return this.getTeamsCalendars(accessToken);
+      case CalendarPlatform.APPLE:
+        return this.getAppleCalendars(email || '', appPassword || '');
+      default:
+        throw new Error(`Unsupported platform: ${platform}`);
+    }
+  }
+
+  /**
+   * Update calendar connection settings
+   */
+  static async updateCalendarSettings(
+    connectionId: string,
+    settings: {
+      isDefaultForBookings?: boolean;
+      syncEvents?: boolean;
+      allowBookings?: boolean;
+      calendarName?: string;
+    }
+  ) {
+    try {
+      // If setting as default, first unset any other defaults for this provider
+      if (settings.isDefaultForBookings) {
+        const connection = await prisma.calendarConnection.findUnique({
+          where: { id: connectionId },
+          select: { providerId: true, platform: true }
+        });
+
+        if (connection) {
+          await prisma.calendarConnection.updateMany({
+            where: {
+              providerId: connection.providerId,
+              platform: connection.platform,
+              id: { not: connectionId }
+            },
+            data: {
+              isDefaultForBookings: false
+            }
+          });
+        }
+      }
+
+      const updatedConnection = await prisma.calendarConnection.update({
+        where: { id: connectionId },
+        data: {
+          ...(settings.isDefaultForBookings !== undefined && { isDefaultForBookings: settings.isDefaultForBookings }),
+          ...(settings.syncEvents !== undefined && { syncEvents: settings.syncEvents }),
+          ...(settings.allowBookings !== undefined && { allowBookings: settings.allowBookings }),
+          ...(settings.calendarName !== undefined && { calendarName: settings.calendarName }),
+        },
+      });
+
+      return updatedConnection;
+    } catch (error) {
+      console.error('Failed to update calendar settings:', error);
+      throw new Error('Failed to update calendar settings');
+    }
+  }
+
+  static async updateConnection(connectionId: string, updateData: {
+    email?: string;
+    calendarId?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    tokenExpiry?: Date | null;
+  }) {
+    try {
+      const updatedConnection = await prisma.calendarConnection.update({
+        where: { id: connectionId },
+        data: {
+          ...(updateData.email && { email: updateData.email }),
+          ...(updateData.calendarId && { calendarId: updateData.calendarId }),
+          ...(updateData.accessToken && { accessToken: updateData.accessToken }),
+          ...(updateData.refreshToken && { refreshToken: updateData.refreshToken }),
+          ...(updateData.tokenExpiry !== undefined && { tokenExpiry: updateData.tokenExpiry }),
+        },
+      });
+
+      return updatedConnection;
+    } catch (error) {
+      console.error('Failed to update calendar connection:', error);
+      throw new Error('Failed to update calendar connection');
+    }
   }
 }
