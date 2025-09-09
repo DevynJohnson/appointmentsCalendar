@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 // Get connection details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params; // Await params before using
@@ -42,7 +42,7 @@ export async function GET(
 // Update connection settings
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params; // Await params before using
@@ -103,7 +103,7 @@ export async function PUT(
 // Delete connection
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params; // Await params before using

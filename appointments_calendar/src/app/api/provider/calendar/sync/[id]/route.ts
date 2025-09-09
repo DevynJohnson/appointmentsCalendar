@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('🔥 POST SYNC ENDPOINT HIT - Route is working!');
   console.log('📊 Request details:', {
@@ -171,7 +171,7 @@ export async function POST(
 // Add GET endpoint for testing
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   console.log('🧪 GET SYNC ENDPOINT HIT - Testing route');
   

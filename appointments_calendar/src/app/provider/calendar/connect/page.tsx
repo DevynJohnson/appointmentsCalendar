@@ -49,7 +49,21 @@ export default function CalendarConnectPage() {
 
   useEffect(() => {
     loadAuthUrls();
-  }, [loadAuthUrls]);
+    
+    // Check for success/error parameters in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const error = urlParams.get('error');
+    
+    if (success === 'google_connected') {
+      // Show success message and redirect to dashboard after a short delay
+      setTimeout(() => {
+        router.push('/provider/dashboard');
+      }, 2000);
+    } else if (error) {
+      setError(`Connection failed: ${error.replace(/_/g, ' ')}`);
+    }
+  }, [loadAuthUrls, router]);
 
   const handleConnectApple = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +142,13 @@ export default function CalendarConnectPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Success message */}
+        {new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('success') === 'google_connected' && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
+            ✅ Google Calendar connected successfully! Redirecting to dashboard...
+          </div>
+        )}
+        
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
             {error}

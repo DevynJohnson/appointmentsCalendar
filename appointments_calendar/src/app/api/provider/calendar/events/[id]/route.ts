@@ -8,9 +8,10 @@ const prisma = new PrismaClient();
 // Update event settings
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     const provider = await ProviderAuthService.verifyToken(token || '');
     
@@ -23,7 +24,7 @@ export async function PUT(
     // Verify the event belongs to the provider
     const event = await prisma.calendarEvent.findFirst({
       where: {
-        id: params.id,
+        id: id,
         providerId: provider.id,
       },
     });
@@ -33,7 +34,7 @@ export async function PUT(
     }
 
     const updatedEvent = await prisma.calendarEvent.update({
-      where: { id: params.id },
+      where: { id: id },
       data: {
         allowBookings: allowBookings !== undefined ? allowBookings : event.allowBookings,
         maxBookings: maxBookings !== undefined ? maxBookings : event.maxBookings,
@@ -52,9 +53,10 @@ export async function PUT(
 // Get event details
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     const provider = await ProviderAuthService.verifyToken(token || '');
     
@@ -64,7 +66,7 @@ export async function GET(
 
     const event = await prisma.calendarEvent.findFirst({
       where: {
-        id: params.id,
+        id: id,
         providerId: provider.id,
       },
       include: {

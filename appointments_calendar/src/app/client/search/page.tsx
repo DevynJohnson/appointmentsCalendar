@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Provider {
@@ -26,6 +26,14 @@ interface SearchResponse {
 }
 
 export default function ProviderSearch() {
+  return (
+    <Suspense fallback={<div className="max-w-6xl mx-auto py-8 px-4"><div className="text-center"><div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div><p className="mt-2">Loading search...</p></div></div>}>
+      <ProviderSearchContent />
+    </Suspense>
+  );
+}
+
+function ProviderSearchContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [providers, setProviders] = useState<Provider[]>([]);

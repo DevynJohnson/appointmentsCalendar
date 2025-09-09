@@ -24,14 +24,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract provider ID and platform from state parameter
+    // Extract provider ID, platform, and re-auth info from state parameter
     let providerId: string;
     let platform: 'outlook' | 'teams' = 'outlook'; // Default to outlook
+    let connectionId: string | undefined;
+    let isReauth: boolean = false;
     try {
       if (state) {
         const stateData = JSON.parse(decodeURIComponent(state));
         providerId = stateData.providerId;
         platform = stateData.platform || 'outlook'; // Get platform from state
+        connectionId = stateData.connectionId;
+        isReauth = stateData.isReauth || false;
       } else {
         throw new Error('Missing state parameter');
       }
@@ -106,24 +110,43 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Save calendar connection
-    await CalendarConnectionService.createConnection({
-      providerId,
-      platform: platform === 'teams' ? CalendarPlatform.TEAMS : CalendarPlatform.OUTLOOK,
-      email: userEmail,
-      calendarId: calendarInfo.id,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      tokenExpiry: tokens.expires_in 
-        ? new Date(Date.now() + tokens.expires_in * 1000)
-        : null,
-    });
+    // Save or update calendar connection
+    if (isReauth && connectionId) {
+      // Update the existing connection with new tokens
+      await CalendarConnectionService.updateConnection(connectionId, {
+        email: userEmail,
+        calendarId: calendarInfo.id,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiry: tokens.expires_in 
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : null,
+      });
 
-    // Redirect back to calendar connect page with success
-    const successParam = platform === 'teams' ? 'teams_connected' : 'microsoft_connected';
-    return NextResponse.redirect(
-      new URL(`/provider/calendar/connect?success=${successParam}`, request.url)
-    );
+      // Redirect back to the management page
+      return NextResponse.redirect(
+        new URL(`/provider/calendar/manage/${connectionId}?success=reauth_success`, request.url)
+      );
+    } else {
+      // Create new connection
+      await CalendarConnectionService.createConnection({
+        providerId,
+        platform: platform === 'teams' ? CalendarPlatform.TEAMS : CalendarPlatform.OUTLOOK,
+        email: userEmail,
+        calendarId: calendarInfo.id,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiry: tokens.expires_in 
+          ? new Date(Date.now() + tokens.expires_in * 1000)
+          : null,
+      });
+
+      // Redirect back to calendar connect page with success
+      const successParam = platform === 'teams' ? 'teams_connected' : 'microsoft_connected';
+      return NextResponse.redirect(
+        new URL(`/provider/calendar/connect?success=${successParam}`, request.url)
+      );
+    }
 
   } catch {
     return NextResponse.redirect(
