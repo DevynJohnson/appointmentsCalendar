@@ -103,13 +103,13 @@ export default function CalendarManagementRouter() {
   // Route to the appropriate platform-specific component
   switch (connection.platform) {
     case 'GOOGLE':
-      return <GoogleCalendarManagement connection={connection} />;
+      return <GoogleCalendarManagement connection={connection} onConnectionUpdate={setConnection} />;
     case 'APPLE':
-      return <AppleCalendarManagement connection={connection} />;
+      return <AppleCalendarManagement connection={connection} onConnectionUpdate={setConnection} />;
     case 'OUTLOOK':
-      return <OutlookCalendarManagement connection={connection} />;
+      return <OutlookCalendarManagement connection={connection} onConnectionUpdate={setConnection} />;
     case 'TEAMS':
-      return <TeamsCalendarManagement connection={connection} />;
+      return <TeamsCalendarManagement connection={connection} onConnectionUpdate={setConnection} />;
     default:
       return (
         <div className="min-h-screen bg-gray-50 py-8">

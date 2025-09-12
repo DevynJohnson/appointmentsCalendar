@@ -1,6 +1,6 @@
 // API endpoint for clients to book appointments
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, BookingStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         calendarEventId: eventId,
         scheduledAt: new Date(scheduledAt),
         duration: duration,
-        status: BookingStatus.PENDING,
+        status: 'PENDING',
         customerAddress: customer.address,
         customerCity: customer.city,
         customerState: customer.state,

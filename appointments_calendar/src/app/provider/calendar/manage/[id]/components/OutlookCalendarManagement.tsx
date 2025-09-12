@@ -35,9 +35,10 @@ interface CalendarEvent {
 
 interface OutlookCalendarManagementProps {
   connection: CalendarConnection;
+  onConnectionUpdate?: (connection: CalendarConnection) => void;
 }
 
-export default function OutlookCalendarManagement({ connection }: OutlookCalendarManagementProps) {
+export default function OutlookCalendarManagement({ connection, onConnectionUpdate }: OutlookCalendarManagementProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -123,11 +124,21 @@ export default function OutlookCalendarManagement({ connection }: OutlookCalenda
         return;
       }
 
-      const result = await response.json();
-      console.log('🔄 Outlook sync result:', result);
+      console.log('🔄 Outlook sync completed successfully');
+      
+      // Update the connection state immediately with the new lastSyncAt timestamp
+      if (onConnectionUpdate) {
+        const updatedConnection = {
+          ...connection,
+          lastSyncAt: new Date().toISOString()
+        };
+        onConnectionUpdate(updatedConnection);
+      } else {
+        // Fallback to reloading data if no callback is provided
+        await loadData();
+      }
       
       alert('Outlook Calendar synced successfully!');
-      await loadData();
     } catch (err) {
       console.error('❌ Outlook sync error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sync Outlook Calendar');

@@ -35,9 +35,10 @@ interface CalendarEvent {
 
 interface TeamsCalendarManagementProps {
   connection: CalendarConnection;
+  onConnectionUpdate?: (connection: CalendarConnection) => void;
 }
 
-export default function TeamsCalendarManagement({ connection }: TeamsCalendarManagementProps) {
+export default function TeamsCalendarManagement({ connection, onConnectionUpdate }: TeamsCalendarManagementProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -123,11 +124,21 @@ export default function TeamsCalendarManagement({ connection }: TeamsCalendarMan
         return;
       }
 
-      const result = await response.json();
-      console.log('🔄 Teams sync result:', result);
+      console.log('🔄 Teams sync completed successfully');
+      
+      // Update the connection state immediately with the new lastSyncAt timestamp
+      if (onConnectionUpdate) {
+        const updatedConnection = {
+          ...connection,
+          lastSyncAt: new Date().toISOString()
+        };
+        onConnectionUpdate(updatedConnection);
+      } else {
+        // Fallback to reloading data if no callback is provided
+        await loadData();
+      }
       
       alert('Teams Calendar synced successfully!');
-      await loadData();
     } catch (err) {
       console.error('❌ Teams sync error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sync Teams Calendar');

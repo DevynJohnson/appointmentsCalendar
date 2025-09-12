@@ -4,7 +4,7 @@
  */
 
 import axios from 'axios';
-import { PrismaClient, CalendarPlatform } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -79,7 +79,7 @@ export class AppleCalendarService {
       const connection = await prisma.calendarConnection.create({
         data: {
           providerId,
-          platform: CalendarPlatform.APPLE,
+          platform: 'APPLE' as const,
           email: credentials.appleId,
           calendarId: `apple-${credentials.appleId}`, // Generate a unique calendar ID
           accessToken: Buffer.from(JSON.stringify(credentials)).toString('base64'), // Encode credentials
@@ -150,12 +150,28 @@ export class AppleCalendarService {
     providerId: string;
     accessToken: string;
     calendarId?: string | null;
+    email?: string;
   }) {
     try {
-      // Decode credentials from stored accessToken
-      const credentials: AppleCalendarCredentials = JSON.parse(
-        Buffer.from(connection.accessToken, 'base64').toString()
-      );
+      // For legacy connections, accessToken might be just the app password
+      // For new connections, it should be base64-encoded JSON
+      let credentials: AppleCalendarCredentials;
+      
+      try {
+        // Try to decode as JSON first (new format)
+        const decoded = Buffer.from(connection.accessToken, 'base64').toString('utf8');
+        console.log('🔍 Decoded accessToken:', decoded.substring(0, 100) + '...');
+        credentials = JSON.parse(decoded);
+        console.log('✅ Successfully parsed JSON credentials');
+      } catch (error) {
+        // Fallback: treat accessToken as plain app password (legacy format)
+        console.log('⚠️ Failed to parse as JSON, treating as legacy format:', error);
+        credentials = {
+          appleId: connection.email || 'unknown@icloud.com',
+          appSpecificPassword: connection.accessToken
+        };
+        console.log('🔄 Using legacy credentials format');
+      }
 
       // Test connection
       const isConnected = await this.testConnection(credentials);

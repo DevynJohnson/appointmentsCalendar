@@ -1,6 +1,6 @@
 // Enhanced booking API that handles both manual events and automatic slots
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient, BookingStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { AvailabilityService } from '@/lib/availability-service';
 
 const prisma = new PrismaClient();
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
         calendarEventId: slotType === 'manual' ? eventId : null, // null for automatic slots
         scheduledAt: appointmentStart,
         duration: duration,
-        status: BookingStatus.PENDING,
+        status: 'PENDING',
         customerAddress: customer.address,
         customerCity: customer.city,
         customerState: customer.state,

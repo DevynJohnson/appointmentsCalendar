@@ -4,9 +4,22 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+type ConnectionWithProvider = {
+  id: string;
+  platform: string;
+  email: string;
+  tokenExpiry: Date | null;
+  isActive: boolean;
+  lastSyncAt: Date | null;
+  provider: {
+    name: string;
+    email: string;
+  };
+};
+
 export async function GET() {
   try {
-    const connections = await prisma.calendarConnection.findMany({
+    const connections: ConnectionWithProvider[] = await prisma.calendarConnection.findMany({
       where: { isActive: true },
       select: {
         id: true,
@@ -21,20 +34,23 @@ export async function GET() {
       }
     });
 
-    const results = connections.map(conn => ({
+    const results = connections.map((conn: ConnectionWithProvider) => ({
+      id: conn.id,
       platform: conn.platform,
       email: conn.email,
-      provider: conn.provider.name,
-      isActive: conn.isActive,
-      tokenExpired: conn.tokenExpiry ? conn.tokenExpiry < new Date() : false,
-      lastSync: conn.lastSyncAt,
-      status: conn.tokenExpiry && conn.tokenExpiry < new Date() ? '⚠️ Token Expired' : '✅ Active'
+      providerName: conn.provider.name,
+      providerEmail: conn.provider.email,
+      tokenExpiry: conn.tokenExpiry,
+      lastSyncAt: conn.lastSyncAt,
+      status: conn.tokenExpiry && conn.tokenExpiry < new Date() ? 'expired' :
+              conn.lastSyncAt && conn.lastSyncAt < new Date(Date.now() - 24 * 60 * 60 * 1000) ? 'stale' :
+              'healthy' as 'expired' | 'stale' | 'healthy'
     }));
 
     return NextResponse.json({
       totalConnections: connections.length,
-      activeConnections: connections.filter(c => c.isActive).length,
-      expiredTokens: results.filter(r => r.tokenExpired).length,
+      activeConnections: connections.filter((c) => c.isActive).length,
+      expiredTokens: results.filter((r) => r.status === 'expired').length,
       connections: results
     });
   } catch {

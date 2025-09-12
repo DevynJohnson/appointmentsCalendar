@@ -4,6 +4,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+type EventWithProvider = {
+  id: string;
+  title: string;
+  startTime: Date;
+  endTime: Date;
+  location: string | null;
+  allowBookings: boolean;
+  maxBookings: number | null;
+  availableServices: string[];
+  provider: {
+    name: string;
+  };
+};
+
 export async function POST(request: NextRequest) {
   try {
     const { eventId, allowBookings, maxBookings, availableServices } = await request.json();
@@ -62,7 +76,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all calendar events for this provider
-    const events = await prisma.calendarEvent.findMany({
+    const events: EventWithProvider[] = await prisma.calendarEvent.findMany({
       where: { 
         providerId,
         startTime: {
@@ -82,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      events: events.map(event => ({
+      events: events.map((event: EventWithProvider) => ({
         id: event.id,
         title: event.title,
         startTime: event.startTime,

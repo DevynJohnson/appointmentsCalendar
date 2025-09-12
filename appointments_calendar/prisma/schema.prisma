@@ -42,8 +42,31 @@ model Provider {
   bookings               Booking[]
   calendarConnections    CalendarConnection[]
   calendarEvents         CalendarEvent[]
+  locations              ProviderLocation[]
 
   @@map("providers")
+}
+
+model ProviderLocation {
+  id            String   @id @default(cuid())
+  providerId    String
+  city          String
+  stateProvince String
+  country       String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean  @default(true)
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([startDate, endDate])
+  @@index([city, stateProvince, country])
+  @@index([providerId, isDefault])
+  @@map("provider_locations")
 }
 
 model CalendarConnection {

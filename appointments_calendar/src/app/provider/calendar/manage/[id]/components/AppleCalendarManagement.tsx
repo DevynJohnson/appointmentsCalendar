@@ -35,9 +35,10 @@ interface CalendarEvent {
 
 interface AppleCalendarManagementProps {
   connection: CalendarConnection;
+  onConnectionUpdate?: (connection: CalendarConnection) => void;
 }
 
-export default function AppleCalendarManagement({ connection }: AppleCalendarManagementProps) {
+export default function AppleCalendarManagement({ connection, onConnectionUpdate }: AppleCalendarManagementProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -142,11 +143,21 @@ export default function AppleCalendarManagement({ connection }: AppleCalendarMan
         return;
       }
 
-      const result = await response.json();
-      console.log('🔄 Apple sync result:', result);
+      console.log('🔄 Apple sync completed successfully');
+      
+      // Update the connection state immediately with the new lastSyncAt timestamp
+      if (onConnectionUpdate) {
+        const updatedConnection = {
+          ...connection,
+          lastSyncAt: new Date().toISOString()
+        };
+        onConnectionUpdate(updatedConnection);
+      } else {
+        // Fallback to reloading data if no callback is provided
+        await loadData();
+      }
       
       alert('Apple Calendar synced successfully!');
-      await loadData();
     } catch (err) {
       console.error('❌ Apple sync error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sync Apple Calendar');

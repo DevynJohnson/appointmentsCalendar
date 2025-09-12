@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Nav from "@/components/Nav";
 import Link from "next/link";
 
@@ -9,14 +8,7 @@ export default function Home() {
       <div className="font-sans grid grid-rows-[1fr_auto] items-center justify-items-center min-h-[calc(100vh-4rem)] p-8 pb-20 gap-16 sm:p-20">
         <main className="flex flex-col gap-[32px] row-start-1 items-center sm:items-start max-w-4xl">
           <div className="text-center sm:text-left">
-            <Image
-              className="dark:invert mx-auto sm:mx-0"
-              src="/next.svg"
-              alt="AppointmentCalendar logo"
-              width={180}
-              height={38}
-              priority
-            />
+            
             <h1 className="text-4xl font-bold text-gray-900 mt-6 mb-4">
               Location-Based Appointment Booking
             </h1>
@@ -37,7 +29,7 @@ export default function Home() {
               className="rounded-full border border-solid border-gray-300 transition-colors flex items-center justify-center hover:bg-gray-50 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto"
               href="/provider/register"
             >
-              👔 Join as Provider
+              👔 Join as a Service Provider
             </Link>
           </div>
 

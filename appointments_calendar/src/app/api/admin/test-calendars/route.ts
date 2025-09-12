@@ -3,6 +3,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { CalendarSyncService } from '@/lib/calendar-sync';
 
+type CalendarConnection = {
+  platform: string;
+  email: string;
+  isActive: boolean;
+  lastSyncAt: Date | null;
+  tokenExpiry: Date | null;
+  provider?: {
+    name: string;
+  };
+};
+
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
@@ -26,7 +37,7 @@ export async function GET(request: NextRequest) {
     // Test sync for each platform
     const testResults = {
       provider: connections[0]?.provider?.name || 'Unknown',
-      connections: connections.map(conn => ({
+      connections: connections.map((conn: CalendarConnection) => ({
         platform: conn.platform,
         email: conn.email,
         isActive: conn.isActive,

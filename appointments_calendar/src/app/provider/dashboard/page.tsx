@@ -131,9 +131,25 @@ export default function ProviderDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('providerToken');
-    router.push('/provider/login');
+  const handleTestPeriodicSync = async () => {
+    try {
+      const response = await fetch('/api/test/cron-sync', {
+        method: 'GET',
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to test periodic sync');
+      }
+
+      alert(`Periodic sync test completed!\n\nStats:\n- Checked: ${result.stats?.totalChecked || 0} connections\n- Synced: ${result.stats?.synced || 0}\n- Errors: ${result.stats?.errors || 0}`);
+      
+      // Reload data to show updated sync times
+      loadDashboardData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Periodic sync test failed');
+    }
   };
 
   if (loading) {
@@ -148,40 +164,36 @@ export default function ProviderDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Header with Actions */}
+        <div className="mb-8">
+          <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Provider Dashboard</h1>
-              <p className="text-gray-800">Manage your calendar connections and appointments</p>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+              <p className="text-gray-600">Manage your calendar connections and appointments</p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <button
                 onClick={handleSyncCalendars}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 Sync All Calendars
               </button>
               <button
-                onClick={handleSetupWebhooks}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                onClick={handleTestPeriodicSync}
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
               >
-                Setup Real-Time Sync
+                Test Auto-Sync
               </button>
               <button
-                onClick={handleLogout}
-                className="text-gray-700 hover:text-gray-900 transition-colors"
+                onClick={handleSetupWebhooks}
+                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
               >
-                Logout
+                Setup Real-Time Sync
               </button>
             </div>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
             {error}
@@ -221,6 +233,12 @@ export default function ProviderDashboard() {
                   className="text-sm text-blue-600 hover:text-blue-800 block"
                 >
                   Add Calendar
+                </button>
+                <button
+                  onClick={() => router.push('/provider/location')}
+                  className="text-sm text-blue-600 hover:text-blue-800 block"
+                >
+                  Manage Locations
                 </button>
                 <button
                   onClick={() => router.push('/provider/bookings')}
@@ -350,7 +368,6 @@ export default function ProviderDashboard() {
             </div>
           </div>
         </div>
-      </main>
     </div>
   );
 }

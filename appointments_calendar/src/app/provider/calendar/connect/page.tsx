@@ -11,8 +11,28 @@ interface AuthUrls {
   apple: null;
 }
 
+interface CalendarConnection {
+  id: string;
+  platform: string;
+  email: string;
+  calendarId: string;
+  calendarName?: string;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  syncFrequency: number;
+  subscriptionId: string | null;
+  webhookUrl: string | null;
+  subscriptionExpiresAt: string | null;
+  createdAt: string;
+  accessToken?: string;
+  isDefaultForBookings?: boolean;
+  syncEvents?: boolean;
+  allowBookings?: boolean;
+}
+
 export default function CalendarConnectPage() {
   const [authUrls, setAuthUrls] = useState<AuthUrls | null>(null);
+  const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAppleForm, setShowAppleForm] = useState(false);
@@ -22,7 +42,7 @@ export default function CalendarConnectPage() {
   });
   const router = useRouter();
 
-  const loadAuthUrls = useCallback(async () => {
+  const loadData = useCallback(async () => {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
@@ -30,25 +50,36 @@ export default function CalendarConnectPage() {
         return;
       }
 
-      const response = await fetch('/api/provider/calendar/auth-urls', {
+      // Load authentication URLs
+      const authResponse = await fetch('/api/provider/calendar/auth-urls', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) {
+      if (!authResponse.ok) {
         throw new Error('Failed to load authentication URLs');
       }
 
-      const data = await response.json();
-      setAuthUrls(data);
+      const authData = await authResponse.json();
+      setAuthUrls(authData);
+
+      // Load existing connections
+      const connectionsResponse = await fetch('/api/provider/calendar/connections', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (connectionsResponse.ok) {
+        const connectionsData = await connectionsResponse.json();
+        setConnections(connectionsData);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load auth URLs');
+      setError(err instanceof Error ? err.message : 'Failed to load calendar data');
     } finally {
       setLoading(false);
     }
   }, [router]);
 
   useEffect(() => {
-    loadAuthUrls();
+    loadData();
     
     // Check for success/error parameters in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -63,7 +94,7 @@ export default function CalendarConnectPage() {
     } else if (error) {
       setError(`Connection failed: ${error.replace(/_/g, ' ')}`);
     }
-  }, [loadAuthUrls, router]);
+  }, [loadData, router]);
 
   const handleConnectApple = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +139,11 @@ export default function CalendarConnectPage() {
     teams: 'Connect your Microsoft Teams meetings and calendar',
     google: 'Connect your Google Calendar or Google Workspace calendar',
     apple: 'Connect your Apple iCloud calendar (requires App-Specific Password)',
+  };
+
+  // Helper function to get connection for platform
+  const getConnectionForPlatform = (platform: string) => {
+    return connections.find(conn => conn.platform.toLowerCase() === platform.toLowerCase());
   };
 
   if (loading) {
@@ -168,6 +204,22 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.outlook}
                 </p>
                 <div className="mt-4">
+                  {getConnectionForPlatform('outlook') && (
+                    <div className="mb-3">
+                      <div className="text-sm text-green-600 flex items-center mb-2">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Connected ({getConnectionForPlatform('outlook')?.email})
+                      </div>
+                      <button
+                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('outlook')?.id}`)}
+                        className="inline-flex items-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 transition-colors"
+                      >
+                        Manage Calendar
+                      </button>
+                    </div>
+                  )}
                   {authUrls?.outlook ? (
                     <a
                       href={authUrls.outlook}
@@ -200,6 +252,22 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.teams}
                 </p>
                 <div className="mt-4">
+                  {getConnectionForPlatform('teams') && (
+                    <div className="mb-3">
+                      <div className="text-sm text-green-600 flex items-center mb-2">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Connected ({getConnectionForPlatform('teams')?.email})
+                      </div>
+                      <button
+                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('teams')?.id}`)}
+                        className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50 transition-colors"
+                      >
+                        Manage Calendar
+                      </button>
+                    </div>
+                  )}
                   {authUrls?.teams ? (
                     <a
                       href={authUrls.teams}
@@ -232,6 +300,22 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.google}
                 </p>
                 <div className="mt-4">
+                  {getConnectionForPlatform('google') && (
+                    <div className="mb-3">
+                      <div className="text-sm text-green-600 flex items-center mb-2">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Connected ({getConnectionForPlatform('google')?.email})
+                      </div>
+                      <button
+                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('google')?.id}`)}
+                        className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
+                      >
+                        Manage Calendar
+                      </button>
+                    </div>
+                  )}
                   {authUrls?.google ? (
                     <a
                       href={authUrls.google}
@@ -264,6 +348,22 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.apple}
                 </p>
                 <div className="mt-4">
+                  {getConnectionForPlatform('apple') && (
+                    <div className="mb-3">
+                      <div className="text-sm text-green-600 flex items-center mb-2">
+                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        Connected ({getConnectionForPlatform('apple')?.email})
+                      </div>
+                      <button
+                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('apple')?.id}`)}
+                        className="inline-flex items-center px-4 py-2 border border-gray-800 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 transition-colors"
+                      >
+                        Manage Calendar
+                      </button>
+                    </div>
+                  )}
                   {!showAppleForm ? (
                     <button
                       onClick={() => setShowAppleForm(true)}

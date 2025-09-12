@@ -44,12 +44,14 @@ interface CalendarEvent {
 
 interface GoogleCalendarManagementProps {
   connection: CalendarConnection;
+  onConnectionUpdate?: (connection: CalendarConnection) => void;
 }
 
-export default function GoogleCalendarManagement({ connection }: GoogleCalendarManagementProps) {
+export default function GoogleCalendarManagement({ connection, onConnectionUpdate }: GoogleCalendarManagementProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [syncLoading, setSyncLoading] = useState(false);
 
   // Form state
   const [isActive, setIsActive] = useState(connection.isActive);
@@ -150,36 +152,41 @@ export default function GoogleCalendarManagement({ connection }: GoogleCalendarM
     }
   };
 
-  const handleSyncNow = async () => {
+    const handleSyncNow = async () => {
+    if (!connection || syncLoading) return;
+    
+    setSyncLoading(true);
+    
     try {
-      setError(null);
       const token = localStorage.getItem('providerToken');
       const response = await fetch(`/api/provider/calendar/sync/${connection.id}`, {
         method: 'POST',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ 
-          fullSync: true,
-          debug: true 
-        }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        // Update the connection state immediately with the new lastSyncAt timestamp
+        if (onConnectionUpdate) {
+          const updatedConnection = {
+            ...connection,
+            lastSyncAt: new Date().toISOString()
+          };
+          onConnectionUpdate(updatedConnection);
+        } else {
+          // Fallback to reloading data if no callback is provided
+          await loadData();
+        }
+      } else {
         const errorData = await response.json();
-        setError(errorData.error || errorData.message || `HTTP ${response.status}: Failed to sync calendar`);
-        return;
+        console.error('Sync failed:', errorData.error || 'Unknown error');
       }
-
-      const result = await response.json();
-      console.log('🔄 Google sync result:', result);
-      
-      alert('Google Calendar synced successfully!');
-      await loadData();
-    } catch (err) {
-      console.error('❌ Google sync error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sync Google Calendar');
+    } catch (error) {
+      console.error('Sync error:', error);
+    } finally {
+      setSyncLoading(false);
     }
   };
 
@@ -350,9 +357,10 @@ export default function GoogleCalendarManagement({ connection }: GoogleCalendarM
                     
                     <button
                       onClick={handleSyncNow}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700"
+                      disabled={syncLoading}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 disabled:opacity-50"
                     >
-                      Sync Now
+                      {syncLoading ? 'Syncing...' : 'Sync Now'}
                     </button>
                     
                     <button

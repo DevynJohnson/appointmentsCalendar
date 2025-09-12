@@ -1,8 +1,19 @@
 // Enhanced calendar synchronization service for multiple platforms
-import { PrismaClient, CalendarPlatform } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import { LocationService } from './location';
-import { CalendarConnectionService } from './calendar-connections';
+
+// Calendar platform constants
+const CalendarPlatform = {
+  OUTLOOK: 'OUTLOOK',
+  GOOGLE: 'GOOGLE',
+  TEAMS: 'TEAMS',
+  APPLE: 'APPLE',
+  OTHER: 'OTHER'
+} as const;
+
+type CalendarPlatform = typeof CalendarPlatform[keyof typeof CalendarPlatform];
+// import { CalendarConnectionService } from './calendar-connections'; // Unused import
 import { AppleCalendarService } from './apple-calendar';
 
 const prisma = new PrismaClient();
@@ -243,7 +254,19 @@ export class CalendarSyncService {
     tokenExpiry: Date | null;
     platform: CalendarPlatform;
   }) {
-    return AppleCalendarService.syncCalendarEvents(connection);
+    // Get the full connection details including email
+    const fullConnection = await prisma.calendarConnection.findFirst({
+      where: { id: connection.id }
+    });
+    
+    if (!fullConnection) {
+      throw new Error(`Apple connection ${connection.id} not found`);
+    }
+    
+    return AppleCalendarService.syncCalendarEvents({
+      ...connection,
+      email: fullConnection.email
+    });
   }
 
   /**
@@ -260,7 +283,9 @@ export class CalendarSyncService {
       location?: { displayName?: string };
       isAllDay?: boolean;
     }, 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     calendarId: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     connectionId: string
   ) {
     // Implementation for processing Outlook events
