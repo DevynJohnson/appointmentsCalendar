@@ -85,7 +85,7 @@ export default function Nav({ type = 'public' }: NavProps) {
 
   // Customer Navigation Items
   const customerNavItems = [
-    { href: '/book', label: 'Book Appointment', icon: '📅' },
+    { href: '/client/booking', label: 'Book Appointment', icon: '📅' },
     { href: '/my-bookings', label: 'My Bookings', icon: '📝' },
     { href: '/locations', label: 'Locations', icon: '📍' },
   ];
@@ -93,7 +93,7 @@ export default function Nav({ type = 'public' }: NavProps) {
   // Public Navigation Items
   const publicNavItems = [
     { href: '/', label: 'Home', icon: '🏠' },
-    { href: '/book', label: 'Book Appointment', icon: '📅' },
+    { href: '/client/booking', label: 'Book Appointment', icon: '📅' },
     { href: '/about', label: 'About', icon: 'ℹ️' },
   ];
 
@@ -120,7 +120,7 @@ export default function Nav({ type = 'public' }: NavProps) {
               <Link href={type === 'provider' ? '/provider/dashboard' : '/'} className="flex items-center">
                 <span className="text-2xl font-bold text-blue-600">📅</span>
                 <span className="ml-2 text-xl font-semibold text-gray-900">
-                  {type === 'provider' ? 'Provider Portal' : 'AppointmentCal'}
+                  {type === 'provider' ? 'Provider Portal' : 'Appointment Calendar'}
                 </span>
               </Link>
             </div>
