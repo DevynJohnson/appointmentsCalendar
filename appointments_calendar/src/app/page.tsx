@@ -12,7 +12,7 @@ export default function Home() {
             <Image
               className="dark:invert mx-auto sm:mx-0"
               src="/next.svg"
-              alt="AppointmentCal logo"
+              alt="AppointmentCalendar logo"
               width={180}
               height={38}
               priority
@@ -29,7 +29,7 @@ export default function Home() {
           <div className="flex gap-4 items-center flex-col sm:flex-row">
             <Link
               className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-              href="/book"
+              href="/client/booking"
             >
               📅 Book an Appointment
             </Link>
@@ -71,7 +71,13 @@ export default function Home() {
             className="flex items-center gap-2 hover:underline hover:underline-offset-4"
             href="/privacy"
           >
-            Privacy
+            Privacy Policy
+          </Link>
+          <Link
+            className="flex items-center gap-2 hover:underline hover:underline-offset-4"
+            href="/terms"
+          >
+            Terms of Service
           </Link>
           <Link
             className="flex items-center gap-2 hover:underline hover:underline-offset-4"
