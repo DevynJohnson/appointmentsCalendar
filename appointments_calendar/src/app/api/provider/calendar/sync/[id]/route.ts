@@ -103,7 +103,7 @@ export async function POST(
       providerId: connection.providerId,
       platform: connection.platform,
       accessToken: connection.accessToken,
-      refreshToken: connection.refreshToken,
+      refreshToken: connection.refreshToken || undefined,
       calendarId: connection.calendarId,
       tokenExpiry: connection.tokenExpiry,
     };

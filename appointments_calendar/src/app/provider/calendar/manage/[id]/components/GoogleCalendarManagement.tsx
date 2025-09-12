@@ -81,8 +81,8 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
       setLoadingCalendars(true);
       try {
         // We need to get the access token from the connection to fetch calendars
-        if (connection.accessToken) {
-          const calendarsResponse = await fetch(`/api/provider/calendar/available-calendars?platform=GOOGLE&accessToken=${encodeURIComponent(connection.accessToken)}`, {
+        if (connection.id) {
+          const calendarsResponse = await fetch(`/api/provider/calendar/available-calendars?platform=GOOGLE&connectionId=${encodeURIComponent(connection.id)}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
 
@@ -111,7 +111,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar data');
     }
-  }, [connection.id, connection.calendarId, connection.accessToken]);
+  }, [connection.id, connection.calendarId]);
 
   useEffect(() => {
     loadData();

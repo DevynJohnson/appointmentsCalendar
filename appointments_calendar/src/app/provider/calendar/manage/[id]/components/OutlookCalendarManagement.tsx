@@ -22,6 +22,15 @@ interface CalendarConnection {
   allowBookings?: boolean;
 }
 
+interface AvailableCalendar {
+  id: string;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  canWrite?: boolean;
+  color?: string;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -47,6 +56,10 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
   const [isActive, setIsActive] = useState(connection.isActive);
   const [syncFrequency, setSyncFrequency] = useState(connection.syncFrequency);
 
+  // Outlook-specific multi-calendar state
+  const [availableCalendars, setAvailableCalendars] = useState<AvailableCalendar[]>([]);
+  const [loadingCalendars, setLoadingCalendars] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
       const token = localStorage.getItem('providerToken');
@@ -59,6 +72,31 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
       if (eventsResponse.ok) {
         const eventsData = await eventsResponse.json();
         setEvents(eventsData.events || []);
+      }
+
+      // Load available Outlook calendars
+      setLoadingCalendars(true);
+      try {
+        if (connection.id) {
+          const calendarsResponse = await fetch(`/api/provider/calendar/available-calendars?platform=OUTLOOK&connectionId=${encodeURIComponent(connection.id)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (calendarsResponse.ok) {
+            const calendarsData = await calendarsResponse.json();
+            setAvailableCalendars(calendarsData.calendars || []);
+          } else {
+            console.error('Failed to fetch calendars:', await calendarsResponse.text());
+            setError('Failed to load Outlook calendars. Try re-authenticating your connection.');
+          }
+        } else {
+          setError('No connection found. Please re-authenticate your Outlook connection.');
+        }
+      } catch (calErr) {
+        console.error('Failed to load calendars:', calErr);
+        setError('Failed to load available calendars');
+      } finally {
+        setLoadingCalendars(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar data');
@@ -94,9 +132,65 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
       }
 
       alert('Outlook Calendar settings saved successfully!');
+      
+      // Update the connection state immediately
+      if (onConnectionUpdate) {
+        const updatedConnection = {
+          ...connection,
+          isActive,
+          syncFrequency,
+        };
+        onConnectionUpdate(updatedConnection);
+      }
+      
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSwitchCalendar = async (newCalendarId: string) => {
+    setSaving(true);
+    try {
+      const token = localStorage.getItem('providerToken');
+      const selectedCalendar = availableCalendars.find(cal => cal.id === newCalendarId);
+      
+      const updateData = {
+        calendarId: newCalendarId,
+        calendarName: selectedCalendar?.name || 'Outlook Calendar',
+      };
+
+      const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to switch calendar');
+      }
+
+      alert(`Switched to calendar: ${selectedCalendar?.name || 'Outlook Calendar'}`);
+      
+      // Update the connection state immediately
+      if (onConnectionUpdate) {
+        const updatedConnection = {
+          ...connection,
+          calendarId: newCalendarId,
+          calendarName: selectedCalendar?.name || 'Outlook Calendar',
+        };
+        onConnectionUpdate(updatedConnection);
+      }
+      
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to switch calendar');
     } finally {
       setSaving(false);
     }
@@ -298,6 +392,69 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
                     <p className="mt-1 text-sm text-gray-500">
                       How often to check for Outlook Calendar updates
                     </p>
+                  </div>
+
+                  {/* Calendar Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Available Outlook Calendars
+                    </label>
+                    {loadingCalendars ? (
+                      <div className="text-sm text-gray-500 flex items-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Loading calendars...
+                      </div>
+                    ) : availableCalendars.length > 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-gray-500">
+                          Select which Outlook calendar to use for appointments and sync:
+                        </p>
+                        <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-md p-3">
+                          {availableCalendars.map((calendar) => (
+                            <div key={calendar.id} className="flex items-start space-x-3">
+                              <input
+                                type="radio"
+                                id={`calendar-${calendar.id}`}
+                                name="selected-calendar"
+                                checked={calendar.id === connection.calendarId}
+                                onChange={() => {
+                                  if (calendar.id !== connection.calendarId) {
+                                    handleSwitchCalendar(calendar.id);
+                                  }
+                                }}
+                                className="border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <label htmlFor={`calendar-${calendar.id}`} className="text-sm font-medium text-gray-900 cursor-pointer">
+                                  {calendar.name}
+                                  {calendar.isDefault && (
+                                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      Default
+                                    </span>
+                                  )}
+                                  {!calendar.canWrite && (
+                                    <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      Read Only
+                                    </span>
+                                  )}
+                                </label>
+                                <p className="text-xs text-gray-500">Calendar ID: {calendar.id.substring(0, 20)}...</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Currently connected to: <strong>{connection.calendarName || 'Default Calendar'}</strong>
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        No calendars available. Try re-authenticating your Outlook connection.
+                      </div>
+                    )}
                   </div>
 
                   {/* Action Buttons */}

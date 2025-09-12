@@ -1,6 +1,7 @@
-// API endpoint for clients to book appointments
+// Enhanced booking API that handles both manual events and automatic slots
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { AvailabilityService } from '@/lib/availability-service';
 
 const prisma = new PrismaClient();
 
@@ -8,17 +9,19 @@ export async function POST(request: NextRequest) {
   try {
     const {
       eventId,
+      providerId,
       scheduledAt,
       duration,
       customer,
       serviceType,
-      notes
+      notes,
+      slotType = 'manual' // 'manual' or 'automatic'
     } = await request.json();
 
     // Validate required fields
-    if (!eventId || !scheduledAt || !duration || !customer) {
+    if (!scheduledAt || !duration || !customer || !providerId) {
       return NextResponse.json({ 
-        error: 'Missing required fields: eventId, scheduledAt, duration, customer' 
+        error: 'Missing required fields: providerId, scheduledAt, duration, customer' 
       }, { status: 400 });
     }
 
@@ -28,54 +31,108 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get the calendar event
-    const calendarEvent = await prisma.calendarEvent.findUnique({
-      where: { id: eventId },
-      include: {
-        bookings: {
-          where: {
-            status: {
-              in: ['CONFIRMED', 'PENDING']
-            }
-          }
-        }
-      }
-    });
-
-    if (!calendarEvent) {
-      return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 });
-    }
-
-    if (!calendarEvent.allowBookings) {
-      return NextResponse.json({ error: 'Bookings not allowed for this event' }, { status: 400 });
-    }
-
-    // Check if event has available slots
-    if (calendarEvent.bookings.length >= calendarEvent.maxBookings) {
-      return NextResponse.json({ error: 'No available slots for this event' }, { status: 400 });
-    }
-
-    // Validate the scheduled time is within the event window
-    const eventStart = new Date(calendarEvent.startTime);
-    const eventEnd = new Date(calendarEvent.endTime);
     const appointmentStart = new Date(scheduledAt);
     const appointmentEnd = new Date(appointmentStart.getTime() + (duration * 60 * 1000));
 
-    if (appointmentStart < eventStart || appointmentEnd > eventEnd) {
-      return NextResponse.json({ 
-        error: 'Appointment time must be within the calendar event window' 
-      }, { status: 400 });
-    }
-
-    // Check for scheduling conflicts with existing bookings
+    // Validate provider exists
     const provider = await prisma.provider.findUnique({
-      where: { id: calendarEvent.providerId },
-      select: { bufferTime: true }
+      where: { id: providerId },
+      select: { id: true, name: true, email: true, phone: true, bufferTime: true }
     });
 
-    const bufferTime = provider?.bufferTime || 15;
+    if (!provider) {
+      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+    }
 
-    const hasConflict = calendarEvent.bookings.some(booking => {
+    let calendarEvent = null;
+
+    if (slotType === 'manual' && eventId) {
+      // Handle manual calendar event booking
+      calendarEvent = await prisma.calendarEvent.findUnique({
+        where: { id: eventId },
+        include: {
+          bookings: {
+            where: {
+              status: {
+                in: ['CONFIRMED', 'PENDING']
+              }
+            }
+          }
+        }
+      });
+
+      if (!calendarEvent) {
+        return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 });
+      }
+
+      if (!calendarEvent.allowBookings) {
+        return NextResponse.json({ error: 'Bookings not allowed for this event' }, { status: 400 });
+      }
+
+      // Check if event has available slots
+      if (calendarEvent.bookings.length >= calendarEvent.maxBookings) {
+        return NextResponse.json({ error: 'No available slots for this event' }, { status: 400 });
+      }
+
+      // Validate the scheduled time is within the event window
+      const eventStart = new Date(calendarEvent.startTime);
+      const eventEnd = new Date(calendarEvent.endTime);
+
+      if (appointmentStart < eventStart || appointmentEnd > eventEnd) {
+        return NextResponse.json({ 
+          error: 'Appointment time must be within the calendar event window' 
+        }, { status: 400 });
+      }
+    } else if (slotType === 'automatic') {
+      // Handle automatic slot booking - verify the slot is actually available
+      const isValid = await AvailabilityService.isSlotAvailable(
+        providerId,
+        appointmentStart,
+        duration
+      );
+
+      if (!isValid) {
+        return NextResponse.json({ 
+          error: 'Selected time slot is no longer available' 
+        }, { status: 400 });
+      }
+
+      // For automatic slots, create a virtual calendar event
+      calendarEvent = {
+        id: 'auto-' + Date.now(), // Virtual ID
+        title: 'Available Time Slot',
+        location: 'To be confirmed',
+        providerId: providerId,
+        startTime: appointmentStart,
+        endTime: appointmentEnd,
+        allowBookings: true,
+        maxBookings: 1,
+        bookings: []
+      };
+    }
+
+    // Check for scheduling conflicts with ALL bookings for this provider
+    const bufferTime = provider.bufferTime || 15;
+    
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        providerId: providerId,
+        status: {
+          in: ['CONFIRMED', 'PENDING']
+        },
+        scheduledAt: {
+          gte: new Date(appointmentStart.getTime() - (2 * 60 * 60 * 1000)), // 2 hours before
+          lte: new Date(appointmentEnd.getTime() + (2 * 60 * 60 * 1000)) // 2 hours after
+        }
+      },
+      select: {
+        id: true,
+        scheduledAt: true,
+        duration: true
+      }
+    });
+
+    const hasConflict = existingBookings.some((booking: { scheduledAt: Date; duration: number }) => {
       const existingStart = new Date(booking.scheduledAt);
       const existingEnd = new Date(existingStart.getTime() + (booking.duration * 60 * 1000));
       
@@ -93,6 +150,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Appointment conflicts with existing booking (including buffer time)' 
       }, { status: 400 });
+    }
+
+    // Check for conflicts with calendar events (if not booking within one)
+    if (slotType === 'automatic') {
+      const conflictingEvents = await prisma.calendarEvent.findMany({
+        where: {
+          providerId: providerId,
+          startTime: {
+            lt: appointmentEnd
+          },
+          endTime: {
+            gt: appointmentStart
+          }
+        }
+      });
+
+      if (conflictingEvents.length > 0) {
+        return NextResponse.json({ 
+          error: 'Appointment conflicts with existing calendar event' 
+        }, { status: 400 });
+      }
     }
 
     // Create or find the customer
@@ -115,9 +193,9 @@ export async function POST(request: NextRequest) {
     const booking = await prisma.booking.create({
       data: {
         customerId: user.id,
-        providerId: calendarEvent.providerId,
-        calendarEventId: eventId,
-        scheduledAt: new Date(scheduledAt),
+        providerId: providerId,
+        calendarEventId: slotType === 'manual' ? eventId : null, // null for automatic slots
+        scheduledAt: appointmentStart,
         duration: duration,
         status: 'PENDING',
         customerAddress: customer.address,
@@ -152,9 +230,10 @@ export async function POST(request: NextRequest) {
         duration: booking.duration,
         status: booking.status,
         serviceType: booking.serviceType,
+        slotType: slotType,
         event: {
-          title: booking.calendarEvent.title,
-          location: booking.calendarEvent.location,
+          title: booking.calendarEvent?.title || calendarEvent?.title || 'Appointment',
+          location: booking.calendarEvent?.location || calendarEvent?.location || 'To be confirmed',
         },
         provider: {
           name: booking.provider.name,

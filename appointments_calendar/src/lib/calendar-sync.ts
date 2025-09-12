@@ -1,6 +1,7 @@
 // Enhanced calendar synchronization service for multiple platforms
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import { ensureValidToken } from './token-refresh';
 import { LocationService } from './location';
 
 // Calendar platform constants
@@ -36,14 +37,24 @@ export class CalendarSyncService {
       try {
         let result;
         
-        if (connection.platform === CalendarPlatform.OUTLOOK) {
-          result = await this.syncOutlookCalendar(connection);
-        } else if (connection.platform === CalendarPlatform.GOOGLE) {
-          result = await this.syncGoogleCalendar(connection);
-        } else if (connection.platform === CalendarPlatform.TEAMS) {
-          result = await this.syncTeamsCalendar(connection);
-        } else if (connection.platform === CalendarPlatform.APPLE) {
-          result = await this.syncAppleCalendar(connection);
+        const syncConnection = {
+          id: connection.id,
+          providerId: connection.providerId,
+          calendarId: connection.calendarId,
+          accessToken: connection.accessToken,
+          refreshToken: connection.refreshToken || undefined,
+          tokenExpiry: connection.tokenExpiry,
+          platform: connection.platform,
+        };
+        
+        if (connection.platform === 'OUTLOOK') {
+          result = await this.syncOutlookCalendar(syncConnection);
+        } else if (connection.platform === 'GOOGLE') {
+          result = await this.syncGoogleCalendar(syncConnection);
+        } else if (connection.platform === 'TEAMS') {
+          result = await this.syncTeamsCalendar(syncConnection);
+        } else if (connection.platform === 'APPLE') {
+          result = await this.syncAppleCalendar(syncConnection);
         } else {
           console.warn(`Unsupported platform: ${connection.platform}`);
           continue;
@@ -81,22 +92,24 @@ export class CalendarSyncService {
     providerId: string;
     calendarId: string;
     accessToken: string;
+    refreshToken?: string;
     tokenExpiry: Date | null;
-    platform: CalendarPlatform;
+    platform: string;
   }) {
     try {
-      // Check if token needs refresh
-      if (connection.tokenExpiry && new Date() > connection.tokenExpiry) {
-        // Token refresh logic would go here
-        throw new Error('Access token expired. Please reconnect your Outlook calendar.');
-      }
+      // Ensure we have a valid access token (refresh if needed)
+      const validConnection = {
+        ...connection,
+        refreshToken: connection.refreshToken || null
+      };
+      const accessToken = await ensureValidToken(validConnection);
 
       // Fetch events from Microsoft Graph API
       const response = await axios.get(
         `https://graph.microsoft.com/v1.0/me/calendars/${connection.calendarId}/events`,
         {
           headers: {
-            Authorization: `Bearer ${connection.accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           params: {
@@ -146,8 +159,9 @@ export class CalendarSyncService {
     providerId: string;
     calendarId: string;
     accessToken: string;
+    refreshToken?: string;
     tokenExpiry: Date | null;
-    platform: CalendarPlatform;
+    platform: string;
   }) {
     try {
       console.log('🌐 Starting Google calendar sync:', {
@@ -156,12 +170,12 @@ export class CalendarSyncService {
         tokenExpiry: connection.tokenExpiry
       });
 
-      // Check if token needs refresh
-      if (connection.tokenExpiry && new Date() > connection.tokenExpiry) {
-        console.log('⚠️ Google token expired, attempting refresh...');
-        // Token refresh logic would go here
-        throw new Error('Access token expired. Please reconnect your Google calendar.');
-      }
+      // Ensure we have a valid access token (refresh if needed)
+      const validConnection = {
+        ...connection,
+        refreshToken: connection.refreshToken || null
+      };
+      const accessToken = await ensureValidToken(validConnection);
 
       // Fetch events from Google Calendar API
       console.log('📡 Fetching events from Google Calendar API...');
@@ -169,7 +183,7 @@ export class CalendarSyncService {
         `https://www.googleapis.com/calendar/v3/calendars/${connection.calendarId}/events`,
         {
           headers: {
-            Authorization: `Bearer ${connection.accessToken}`,
+            Authorization: `Bearer ${accessToken}`,
           },
           params: {
             maxResults: 50,
@@ -236,8 +250,9 @@ export class CalendarSyncService {
     providerId: string;
     calendarId: string;
     accessToken: string;
+    refreshToken?: string;
     tokenExpiry: Date | null;
-    platform: CalendarPlatform;
+    platform: string;
   }) {
     // Teams uses the same Microsoft Graph API as Outlook
     return this.syncOutlookCalendar(connection);
@@ -251,8 +266,9 @@ export class CalendarSyncService {
     providerId: string;
     calendarId: string;
     accessToken: string;
+    refreshToken?: string;
     tokenExpiry: Date | null;
-    platform: CalendarPlatform;
+    platform: string;
   }) {
     // Get the full connection details including email
     const fullConnection = await prisma.calendarConnection.findFirst({

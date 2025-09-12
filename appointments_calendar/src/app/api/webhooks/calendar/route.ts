@@ -153,10 +153,20 @@ async function handleMicrosoftWebhook(payload: MicrosoftWebhookPayload) {
 
     // Sync the specific calendar that changed
     try {
+      const syncConnection = {
+        id: connection.id,
+        providerId: connection.providerId,
+        calendarId: connection.calendarId,
+        accessToken: connection.accessToken,
+        refreshToken: connection.refreshToken || undefined,
+        tokenExpiry: connection.tokenExpiry,
+        platform: connection.platform,
+      };
+
       if (connection.platform === 'OUTLOOK') {
-        await CalendarSyncService.syncOutlookCalendar(connection);
+        await CalendarSyncService.syncOutlookCalendar(syncConnection);
       } else if (connection.platform === 'TEAMS') {
-        await CalendarSyncService.syncTeamsCalendar(connection);
+        await CalendarSyncService.syncTeamsCalendar(syncConnection);
       }
 
       // Update last sync time
@@ -193,7 +203,17 @@ async function handleGoogleWebhook(payload: GoogleWebhookPayload) {
   console.log(`Processing Google Calendar change for resource ${resourceId}`);
 
   try {
-    await CalendarSyncService.syncGoogleCalendar(connection);
+    const syncConnection = {
+      id: connection.id,
+      providerId: connection.providerId,
+      calendarId: connection.calendarId,
+      accessToken: connection.accessToken,
+      refreshToken: connection.refreshToken || undefined,
+      tokenExpiry: connection.tokenExpiry,
+      platform: connection.platform,
+    };
+
+    await CalendarSyncService.syncGoogleCalendar(syncConnection);
 
     // Update last sync time
     await prisma.calendarConnection.update({
