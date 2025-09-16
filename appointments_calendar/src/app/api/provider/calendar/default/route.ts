@@ -87,14 +87,16 @@ export async function GET(request: NextRequest) {
         
         // Add each selected calendar that allows bookings and is writeable
         for (const calendarId of connection.selectedCalendars) {
-          const settings = calendarSettings?.[calendarId];
+          // Type cast to string since selectedCalendars should contain calendar ID strings
+          const calendarIdStr = calendarId as string;
+          const settings = calendarSettings?.[calendarIdStr];
           if (settings?.allowBookings && settings?.canWrite !== false) {
             platformGroups[platform].push({
               connectionId: connection.id,
-              calendarId: calendarId,
+              calendarId: calendarIdStr,
               calendarName: settings.calendarName || `${platform} Calendar`,
               email: connection.email,
-              isDefault: connection.isDefaultForBookings && connection.calendarId === calendarId,
+              isDefault: connection.isDefaultForBookings && connection.calendarId === calendarIdStr,
             });
           }
         }
