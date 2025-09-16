@@ -21,8 +21,8 @@ interface BookingWithRelations {
   serviceType: string;
   notes?: string | null;
   customer: {
-    firstName: string;
-    lastName: string;
+    firstName: string | null;
+    lastName: string | null;
     email: string;
   };
   provider: {
@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
       // Send confirmation emails
       const bookingDetails = {
         id: confirmedBooking.id,
-        customerName: `${confirmedBooking.customer.firstName} ${confirmedBooking.customer.lastName}`,
+        customerName: `${confirmedBooking.customer.firstName || 'Unknown'} ${confirmedBooking.customer.lastName || 'Customer'}`,
         customerEmail: confirmedBooking.customer.email,
         providerName: confirmedBooking.provider.name,
         providerEmail: confirmedBooking.provider.email,
