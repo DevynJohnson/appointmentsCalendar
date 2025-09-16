@@ -67,14 +67,20 @@ To run Appointments Calendar locally for development:
      ```env
      DATABASE_URL="your_postgresql_connection_string"
      DIRECT_URL="your_direct_postgresql_connection_string"
-     NEXTAUTH_SECRET="your_nextauth_secret"
-     NEXTAUTH_URL="http://localhost:3000"
+     JWT_SECRET="your_secure_jwt_secret"
      
      # Calendar Integration
      MICROSOFT_CLIENT_ID="your_microsoft_app_id"
      MICROSOFT_CLIENT_SECRET="your_microsoft_app_secret"
      GOOGLE_CLIENT_ID="your_google_client_id"
      GOOGLE_CLIENT_SECRET="your_google_client_secret"
+     
+     # Email Service (Resend)
+     RESEND_API_KEY="your_resend_api_key"
+     RESEND_FROM_EMAIL="noreply@yourdomain.com"
+     
+     # Application URLs
+     NEXT_PUBLIC_BASE_URL="http://localhost:3000"
      ```
 
 4. **Set up the database**
@@ -107,8 +113,9 @@ The application is optimized for deployment on platforms like Vercel, Netlify, o
 1. **Browse Availability**: Search for available appointment slots by location and service type
 2. **Book Appointments**: Select preferred time slots when providers are in your area
 3. **Provide Details**: Enter contact information and service requirements
-4. **Receive Confirmation**: Get booking confirmation via email with appointment details
-5. **Manage Bookings**: Use magic links to modify or cancel appointments
+4. **Magic Link Authentication**: Receive secure magic link via email for booking confirmation
+5. **Confirm Booking**: Click magic link to authenticate and complete the appointment booking
+6. **Calendar Integration**: Confirmed bookings are automatically added to provider's calendar
 
 ## Technology Stack
 
@@ -125,6 +132,8 @@ The application is optimized for deployment on platforms like Vercel, Netlify, o
 - **Prisma 6.14.0** - Modern database toolkit and ORM
 - **PostgreSQL** - Robust relational database via pg 8.16.3
 - **bcryptjs 3.0.2** - Password hashing for secure authentication
+- **Resend 6.0.3** - Modern email API for transactional emails
+- **Nodemailer 6.10.1** - Alternative email service with SMTP support
 
 ### Calendar Integration
 - **@azure/msal-node 3.7.1** - Microsoft Authentication Library for Outlook and Teams integration
@@ -152,11 +161,13 @@ The application is optimized for deployment on platforms like Vercel, Netlify, o
 Appointments Calendar implements comprehensive security measures to protect user data and ensure platform integrity:
 
 ### Application Security
-- **JWT Authentication**: Secure token-based authentication with NextAuth.js
-- **Input Validation**: All inputs validated using Zod schemas
+- **JWT Authentication**: Secure token-based authentication with magic links
+- **Input Validation**: All inputs validated using Zod schemas and Express Validator
 - **SQL Injection Prevention**: Prisma ORM provides automatic protection
 - **CSRF Protection**: Built-in CSRF protection with NextAuth.js
-- **Secure Headers**: Next.js security headers for XSS and clickjacking protection
+- **Security Headers**: Helmet middleware for comprehensive security headers
+- **Rate Limiting**: Express Rate Limit prevents API abuse and DDoS attacks
+- **CORS Configuration**: Controlled cross-origin resource sharing
 
 ### Data Protection
 - **Password Security**: bcryptjs hashing with secure salt rounds
@@ -182,18 +193,29 @@ Appointments Calendar implements comprehensive security measures to protect user
 - `POST /sync` — Manually trigger calendar synchronization
 - `GET /events` — Retrieve synchronized calendar events
 - `POST /webhooks` — Handle calendar platform webhooks
+- `GET /default` — Get/set default calendar for bookings
+- `POST /settings` — Update calendar connection settings
+- `POST /fix-connections` — Repair broken calendar connections
 
 ### Booking Management (`/api/provider`)
 - `GET /dashboard/stats` — Provider dashboard statistics
 - `PUT /calendar/events/:id` — Update event booking settings
+- `GET /location` — Manage provider locations
+- `POST /location` — Add new provider location
 
-### Public Booking API
-- `GET /api/providers` — List available providers and locations
-- `POST /api/bookings` — Create new customer booking
-- `GET /api/availability` — Check appointment availability
+### Client Booking API (`/api/client`)
+- `GET /search-providers` — Search available providers by location
+- `GET /open-slots` — Get available time slots for booking
+- `POST /book-appointment` — Create new appointment with magic link
+- `GET /booking/confirm` — Confirm booking via magic link token
 
-### Webhook Endpoints (`/api/webhooks`)
-- `POST /calendar` — Handle calendar platform notifications
+### Administrative Endpoints (`/api/admin`)
+- `GET /test-calendars` — Test calendar integrations
+- `PUT /event-booking-settings` — Update event booking configurations
+
+### Webhook & Automation (`/api/webhooks`, `/api/cron`)
+- `POST /webhooks/calendar` — Handle calendar platform notifications
+- `POST /cron/sync-calendars` — Automated calendar synchronization
 
 ## Testing
 
@@ -234,7 +256,8 @@ The application uses a PostgreSQL database with the following key models:
 - **CalendarConnection**: Calendar platform integrations
 - **CalendarEvent**: Synchronized calendar events with location data
 - **Booking**: Customer appointments and service details
-- **MagicLink**: Secure authentication and booking links
+- **MagicLink**: Secure authentication and booking confirmation tokens
+- **Location**: Provider service areas and geographic data
 
 ### Key Relationships
 - Providers can have multiple calendar connections
@@ -291,8 +314,12 @@ Devyn Johnson - Full-Stack Engineer & Project Architect
 - [NextAuth.js](https://next-auth.js.org) - Complete authentication solution for Next.js
 - [Microsoft Authentication Library](https://github.com/AzureAD/microsoft-authentication-library-for-js) - Azure AD and Microsoft account authentication
 - [bcryptjs](https://www.npmjs.com/package/bcryptjs) - Password hashing library
-- [JSON Web Tokens](https://jwt.io) - Secure token standard
+- [JSON Web Tokens](https://jwt.io) - Secure token standard for magic links
 - [Zod](https://zod.dev) - TypeScript-first schema validation
+- [Helmet](https://helmetjs.github.io) - Security middleware for Express applications
+- [Express Rate Limit](https://www.npmjs.com/package/express-rate-limit) - Rate limiting middleware
+- [CORS](https://www.npmjs.com/package/cors) - Cross-Origin Resource Sharing middleware
+- [Validator.js](https://github.com/validatorjs/validator.js) - String validation and sanitization
 
 #### Calendar & Date Management
 - [dav](https://www.npmjs.com/package/dav) - CalDAV and CardDAV client library
@@ -306,6 +333,10 @@ Devyn Johnson - Full-Stack Engineer & Project Architect
 - [ESLint](https://eslint.org) - JavaScript and TypeScript linting
 - [tsx](https://www.npmjs.com/package/tsx) - TypeScript execution environment
 - [Prisma Studio](https://www.prisma.io/studio) - Visual database editor
+
+#### Email Services
+- [Resend](https://resend.com) - Modern email API for transactional emails
+- [Nodemailer](https://nodemailer.com) - Alternative email sending with SMTP support
 
 #### Utilities
 - [Axios](https://axios-http.com) - Promise-based HTTP client

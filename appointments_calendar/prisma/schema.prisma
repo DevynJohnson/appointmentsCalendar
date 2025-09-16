@@ -27,7 +27,7 @@ model Provider {
   id                     String               @id @default(cuid())
   name                   String
   email                  String               @unique
-  phone                  String
+  phone                  String?
   passwordHash           String?
   isActive               Boolean              @default(true)
   company                String?
@@ -82,6 +82,8 @@ model CalendarConnection {
   isDefaultForBookings  Boolean          @default(false)
   syncEvents            Boolean          @default(true)
   allowBookings         Boolean          @default(true)
+  selectedCalendars     Json?            // Array of selected calendar IDs for multi-calendar platforms
+  calendarSettings      Json?            // Per-calendar settings for multi-calendar platforms
   isActive              Boolean          @default(true)
   lastSyncAt            DateTime?
   syncFrequency         Int              @default(15)
@@ -135,28 +137,22 @@ model CalendarEvent {
 }
 
 model Booking {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   customerId      String
   providerId      String
-  calendarEventId String
+  calendarEventId String?
   scheduledAt     DateTime
   duration        Int
-  status          BookingStatus @default(PENDING)
-  customerAddress String
-  customerCity    String
-  customerState   String
-  customerZipCode String?
-  customerLat     Float?
-  customerLng     Float?
+  status          BookingStatus  @default(PENDING)
   serviceType     String
   notes           String?
   estimatedCost   Float?
   finalCost       Float?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  calendarEvent   CalendarEvent @relation(fields: [calendarEventId], references: [id])
-  customer        User          @relation(fields: [customerId], references: [id])
-  provider        Provider      @relation(fields: [providerId], references: [id])
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  calendarEvent   CalendarEvent? @relation(fields: [calendarEventId], references: [id])
+  customer        User           @relation(fields: [customerId], references: [id])
+  provider        Provider       @relation(fields: [providerId], references: [id])
 
   @@index([scheduledAt])
   @@index([providerId, scheduledAt])

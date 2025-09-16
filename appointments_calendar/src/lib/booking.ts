@@ -118,10 +118,6 @@ export class BookingService {
         duration: Math.floor(
           (calendarEvent.endTime.getTime() - calendarEvent.startTime.getTime()) / (1000 * 60)
         ),
-        customerAddress: data.customerAddress,
-        customerCity: data.customerCity,
-        customerState: data.customerState,
-        customerZipCode: data.customerZipCode,
         serviceType: data.serviceType,
         notes: data.notes,
         status: 'PENDING',

@@ -15,13 +15,11 @@ interface Slot {
   };
   location: {
     display: string;
-    city: string;
-    state: string;
-    address: string;
   };
   availableServices: string[];
   eventTitle: string;
   slotsRemaining: number;
+  type?: string; // 'automatic' or 'manual'
 }
 
 interface ApiResponse {
@@ -53,7 +51,7 @@ function ClientBookingContent() {
     providerId: urlProviderId || '',
     serviceType: '',
     daysAhead: '14', // Default to 2 weeks for better UX
-    mode: 'both', // Always use both modes for best client experience
+    mode: 'auto', // Use automatic slots - calendar events are treated as busy time
   });
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [bookingForm, setBookingForm] = useState({
@@ -61,10 +59,6 @@ function ClientBookingContent() {
     lastName: '',
     email: '',
     phone: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
     serviceType: 'consultation',
     notes: '',
   });
@@ -122,8 +116,9 @@ function ClientBookingContent() {
 
     setIsBooking(true);
     try {
-      const isAutoSlot = selectedSlot.eventTitle === 'Available Time' || 
-                        selectedSlot.eventTitle.includes('Auto Generated');
+      const isAutoSlot = selectedSlot.eventTitle === 'Available Appointment' || 
+                        selectedSlot.eventId?.startsWith('auto-') ||
+                        selectedSlot.type === 'automatic';
       
       const response = await fetch('/api/client/book-appointment', {
         method: 'POST',
@@ -141,10 +136,6 @@ function ClientBookingContent() {
             lastName: bookingForm.lastName,
             email: bookingForm.email,
             phone: bookingForm.phone,
-            address: bookingForm.address,
-            city: bookingForm.city,
-            state: bookingForm.state,
-            zipCode: bookingForm.zipCode,
           },
           serviceType: bookingForm.serviceType,
           notes: bookingForm.notes,
@@ -154,17 +145,13 @@ function ClientBookingContent() {
       const data = await response.json();
       
       if (data.success) {
-        alert('Appointment booked successfully! You will receive a confirmation email.');
+        alert(data.message || 'Booking request submitted! Please check your email for a confirmation link.');
         setSelectedSlot(null);
         setBookingForm({
           firstName: '',
           lastName: '',
           email: '',
           phone: '',
-          address: '',
-          city: '',
-          state: '',
-          zipCode: '',
           serviceType: 'consultation',
           notes: '',
         });
@@ -436,48 +423,13 @@ function ClientBookingContent() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Phone *</label>
+                  <label className="block text-sm font-medium mb-1">Phone (Optional)</label>
                   <input
                     type="tel"
-                    required
                     value={bookingForm.phone}
                     onChange={(e) => setBookingForm(prev => ({ ...prev, phone: e.target.value }))}
                     className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Address *</label>
-                  <input
-                    type="text"
-                    required
-                    value={bookingForm.address}
-                    onChange={(e) => setBookingForm(prev => ({ ...prev, address: e.target.value }))}
-                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">City *</label>
-                    <input
-                      type="text"
-                      required
-                      value={bookingForm.city}
-                      onChange={(e) => setBookingForm(prev => ({ ...prev, city: e.target.value }))}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">State *</label>
-                    <input
-                      type="text"
-                      required
-                      value={bookingForm.state}
-                      onChange={(e) => setBookingForm(prev => ({ ...prev, state: e.target.value }))}
-                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
                 </div>
 
                 <div>

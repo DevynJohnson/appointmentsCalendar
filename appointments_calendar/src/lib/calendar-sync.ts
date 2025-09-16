@@ -28,6 +28,7 @@ export class CalendarSyncService {
       where: {
         providerId,
         isActive: true,
+        syncEvents: true, // Only sync connections that have syncEvents enabled
       },
     });
 
@@ -45,6 +46,8 @@ export class CalendarSyncService {
           refreshToken: connection.refreshToken || undefined,
           tokenExpiry: connection.tokenExpiry,
           platform: connection.platform,
+          selectedCalendars: connection.selectedCalendars,
+          calendarSettings: connection.calendarSettings,
         };
         
         if (connection.platform === 'OUTLOOK') {
@@ -95,8 +98,16 @@ export class CalendarSyncService {
     refreshToken?: string;
     tokenExpiry: Date | null;
     platform: string;
+    selectedCalendars?: unknown;
+    calendarSettings?: unknown;
   }) {
     try {
+      console.log('🌐 Starting Outlook calendar sync:', {
+        connectionId: connection.id,
+        calendarId: connection.calendarId,
+        tokenExpiry: connection.tokenExpiry
+      });
+
       // Ensure we have a valid access token (refresh if needed)
       const validConnection = {
         ...connection,
@@ -104,30 +115,73 @@ export class CalendarSyncService {
       };
       const accessToken = await ensureValidToken(validConnection);
 
-      // Fetch events from Microsoft Graph API
-      const response = await axios.get(
-        `https://graph.microsoft.com/v1.0/me/calendars/${connection.calendarId}/events`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          params: {
-            $select: 'id,subject,body,start,end,location,isAllDay',
-            $top: 50,
-          },
-        }
-      );
+      // Determine which calendars to sync
+      let calendarsToSync: string[] = [connection.calendarId]; // Default to primary calendar
+      
+      // If we have multi-calendar configuration, use those settings
+      if (connection.selectedCalendars && Array.isArray(connection.selectedCalendars)) {
+        const calendarSettings = connection.calendarSettings as Record<string, { syncEvents?: boolean; allowBookings?: boolean }> | null;
+        
+        // Filter to only calendars that have syncEvents enabled
+        calendarsToSync = (connection.selectedCalendars as string[]).filter(calendarId => {
+          const settings = calendarSettings?.[calendarId];
+          return settings?.syncEvents === true;
+        });
+        
+        console.log(`📋 Multi-calendar mode: ${calendarsToSync.length} calendars enabled for sync`);
+        console.log(`📝 Calendars to sync:`, calendarsToSync);
+      } else {
+        console.log(`📋 Single-calendar mode: using primary calendar ${connection.calendarId}`);
+      }
 
-      const events = response.data.value || [];
-      let eventsProcessed = 0;
+      // If no calendars are enabled for sync, return early
+      if (calendarsToSync.length === 0) {
+        console.log('⏭️ No calendars enabled for sync, skipping');
+        return {
+          success: true,
+          eventsProcessed: 0,
+          message: 'No calendars enabled for sync'
+        };
+      }
 
-      for (const event of events) {
+      let totalEventsProcessed = 0;
+
+      // Sync each calendar that has syncEvents enabled
+      for (const calendarId of calendarsToSync) {
         try {
-          await this.processOutlookEvent(connection.providerId, event, connection.calendarId, connection.id);
-          eventsProcessed++;
-        } catch (eventError) {
-          console.error(`Failed to process Outlook event ${event.id}:`, eventError);
+          console.log(`📅 Syncing Outlook calendar: ${calendarId}`);
+          
+          // Fetch events from Microsoft Graph API
+          const response = await axios.get(
+            `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              params: {
+                $select: 'id,subject,body,start,end,location,isAllDay',
+                $top: 50,
+              },
+            }
+          );
+
+          const events = response.data.value || [];
+          let calendarEventsProcessed = 0;
+
+          for (const event of events) {
+            try {
+              await this.processOutlookEvent(connection.providerId, event, calendarId, connection.id);
+              calendarEventsProcessed++;
+              totalEventsProcessed++;
+            } catch (eventError) {
+              console.error(`Failed to process Outlook event ${event.id}:`, eventError);
+            }
+          }
+
+          console.log(`✅ Processed ${calendarEventsProcessed} events from calendar ${calendarId}`);
+        } catch (calendarError) {
+          console.error(`Failed to sync Outlook calendar ${calendarId}:`, calendarError);
         }
       }
 
@@ -139,8 +193,8 @@ export class CalendarSyncService {
 
       return {
         success: true,
-        eventsProcessed,
-        message: `Synced ${eventsProcessed} events from Outlook`,
+        eventsProcessed: totalEventsProcessed,
+        message: `Synced ${totalEventsProcessed} events from ${calendarsToSync.length} Outlook calendar(s)`,
       };
     } catch (error) {
       console.error('Outlook calendar sync failed:', error);
@@ -162,6 +216,8 @@ export class CalendarSyncService {
     refreshToken?: string;
     tokenExpiry: Date | null;
     platform: string;
+    selectedCalendars?: unknown;
+    calendarSettings?: unknown;
   }) {
     try {
       console.log('🌐 Starting Google calendar sync:', {
@@ -177,39 +233,70 @@ export class CalendarSyncService {
       };
       const accessToken = await ensureValidToken(validConnection);
 
-      // Fetch events from Google Calendar API
-      console.log('📡 Fetching events from Google Calendar API...');
-      const response = await axios.get(
-        `https://www.googleapis.com/calendar/v3/calendars/${connection.calendarId}/events`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          params: {
-            maxResults: 50,
-            singleEvents: true,
-            orderBy: 'startTime',
-            timeMin: new Date().toISOString(), // Only get future events
-          },
-        }
-      );
-
-      const events = response.data.items || [];
-      console.log(`📅 Found ${events.length} events in Google Calendar`);
+      // Determine which calendars to sync
+      let calendarsToSync: string[] = [connection.calendarId]; // Default to primary calendar
       
-      let eventsProcessed = 0;
+      // If we have multi-calendar configuration, use those settings
+      if (connection.selectedCalendars && Array.isArray(connection.selectedCalendars)) {
+        const calendarSettings = connection.calendarSettings as Record<string, { syncEvents?: boolean; allowBookings?: boolean }> | null;
+        
+        // Filter to only calendars that have syncEvents enabled
+        calendarsToSync = (connection.selectedCalendars as string[]).filter(calendarId => {
+          const settings = calendarSettings?.[calendarId];
+          return settings?.syncEvents === true;
+        });
+        
+        console.log(`📋 Multi-calendar mode: ${calendarsToSync.length} calendars enabled for sync`);
+        console.log(`📝 Calendars to sync:`, calendarsToSync);
+      } else {
+        console.log(`📋 Single-calendar mode: syncing primary calendar only`);
+      }
 
-      for (const event of events) {
+      let totalEventsProcessed = 0;
+
+      // Sync events from each selected calendar
+      for (const calendarId of calendarsToSync) {
         try {
-          console.log(`📝 Processing Google event: ${event.summary || 'Untitled'} (${event.id})`);
-          await this.processGoogleEvent(connection.providerId, event, connection.calendarId, connection.id);
-          eventsProcessed++;
-        } catch (eventError) {
-          console.error(`❌ Failed to process Google event ${event.id}:`, eventError);
+          console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
+          const response = await axios.get(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+              params: {
+                maxResults: 50,
+                singleEvents: true,
+                orderBy: 'startTime',
+                timeMin: new Date().toISOString(), // Only get future events
+              },
+            }
+          );
+
+          const events = response.data.items || [];
+          console.log(`📅 Found ${events.length} events in calendar ${calendarId}`);
+          
+          let calendarEventsProcessed = 0;
+
+          for (const event of events) {
+            try {
+              console.log(`📝 Processing Google event: ${event.summary || 'Untitled'} (${event.id}) from ${calendarId}`);
+              await this.processGoogleEvent(connection.providerId, event, calendarId, connection.id);
+              calendarEventsProcessed++;
+              totalEventsProcessed++;
+            } catch (eventError) {
+              console.error(`❌ Failed to process Google event ${event.id}:`, eventError);
+            }
+          }
+          
+          console.log(`✅ Processed ${calendarEventsProcessed} events from calendar ${calendarId}`);
+          
+        } catch (calendarError) {
+          console.error(`❌ Failed to sync calendar ${calendarId}:`, calendarError);
         }
       }
 
-      console.log(`✅ Processed ${eventsProcessed} Google events successfully`);
+      console.log(`✅ Processed ${totalEventsProcessed} Google events successfully`);
 
       // Update last sync time
       await prisma.calendarConnection.update({
@@ -219,8 +306,8 @@ export class CalendarSyncService {
 
       return {
         success: true,
-        eventsProcessed,
-        message: `Synced ${eventsProcessed} events from Google Calendar`,
+        eventsProcessed: totalEventsProcessed,
+        message: `Synced ${totalEventsProcessed} events from Google Calendar`,
       };
     } catch (error) {
       console.error('❌ Google calendar sync failed:', error);

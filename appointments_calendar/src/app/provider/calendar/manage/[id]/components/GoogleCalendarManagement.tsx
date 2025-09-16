@@ -95,6 +95,16 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
               ?.filter((cal: AvailableCalendar) => cal.id === connection.calendarId)
               .map((cal: AvailableCalendar) => cal.id) || [];
             setSelectedCalendars(initialSelected);
+            
+            // Initialize calendar settings with current connection values
+            const initialCalendarSettings: {[key: string]: {syncEvents: boolean, allowBookings: boolean}} = {};
+            calendarsData.calendars?.forEach((cal: AvailableCalendar) => {
+              initialCalendarSettings[cal.id] = {
+                syncEvents: connection.syncEvents ?? true,
+                allowBookings: connection.allowBookings ?? true,
+              };
+            });
+            setCalendarSettings(initialCalendarSettings);
           } else {
             console.error('Failed to fetch calendars:', await calendarsResponse.text());
             setError('Failed to load Google calendars. Try re-authenticating your connection.');
@@ -111,7 +121,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar data');
     }
-  }, [connection.id, connection.calendarId]);
+  }, [connection.id, connection.calendarId, connection.syncEvents, connection.allowBookings]);
 
   useEffect(() => {
     loadData();
@@ -122,9 +132,15 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     try {
       const token = localStorage.getItem('providerToken');
       
+      // For now, use the settings from the primary calendar (connection.calendarId) 
+      // or default values if no specific settings are set
+      const primaryCalendarSettings = calendarSettings[connection.calendarId] || { syncEvents: true, allowBookings: true };
+      
       const updateData = {
         isActive,
         syncFrequency,
+        syncEvents: primaryCalendarSettings.syncEvents,
+        allowBookings: primaryCalendarSettings.allowBookings,
         selectedCalendars,
         calendarSettings,
       };
@@ -427,10 +443,19 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                             <label className="flex items-center">
                               <input
                                 type="checkbox"
-                                checked={selectedCalendars.includes(calendar.id)}
+                                checked={calendarSettings[calendar.id]?.syncEvents || false}
                                 onChange={(e) => {
+                                  setCalendarSettings({
+                                    ...calendarSettings,
+                                    [calendar.id]: {
+                                      ...calendarSettings[calendar.id],
+                                      syncEvents: e.target.checked,
+                                      allowBookings: calendarSettings[calendar.id]?.allowBookings || false,
+                                    }
+                                  });
+                                  // Also update selectedCalendars for backward compatibility
                                   if (e.target.checked) {
-                                    setSelectedCalendars([...selectedCalendars, calendar.id]);
+                                    setSelectedCalendars([...selectedCalendars.filter(id => id !== calendar.id), calendar.id]);
                                   } else {
                                     setSelectedCalendars(selectedCalendars.filter(id => id !== calendar.id));
                                   }
@@ -473,6 +498,29 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Google Calendar Info */}
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">Google Multi-Calendar Settings</h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Sync Events:</strong> Pull existing events from this calendar to block booking times</li>
+                      <li><strong>Allow Bookings:</strong> Make this calendar available in the default calendar dropdown for new bookings</li>
+                      <li>Google Calendar uses OAuth 2.0 for secure synchronization</li>
+                      <li>Supports real-time updates and advanced calendar features</li>
+                      <li>Changes appear almost instantly across all selected calendars</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

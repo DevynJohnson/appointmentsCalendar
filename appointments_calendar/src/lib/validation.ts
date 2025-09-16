@@ -57,7 +57,7 @@ export const bioSchema = z
 export const providerRegistrationSchema = z.object({
   name: textFieldSchema,
   email: emailSchema,
-  phone: phoneSchema,
+  phone: phoneSchema.optional(),
   password: passwordSchema,
   confirmPassword: z.string().optional(), // Validated separately in frontend
   company: textFieldSchema.optional(),

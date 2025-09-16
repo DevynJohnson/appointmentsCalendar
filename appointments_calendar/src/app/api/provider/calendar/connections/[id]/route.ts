@@ -61,12 +61,17 @@ export async function PUT(
     const requestBody = await request.json();
     console.log('🔧 Request body received:', requestBody);
     
-    const { isActive, syncFrequency, accessToken } = requestBody;
+    const { isActive, syncFrequency, accessToken, syncEvents, allowBookings, selectedCalendars, calendarSettings } = requestBody;
     
     console.log('🔧 PUT connection update request:', {
       id,
       isActive,
       syncFrequency,
+      syncEvents,
+      allowBookings,
+      selectedCalendarsCount: selectedCalendars?.length,
+      selectedCalendars,
+      calendarSettingsKeys: calendarSettings ? Object.keys(calendarSettings) : [],
       accessTokenPresent: !!accessToken,
       accessTokenLength: accessToken?.length
     });
@@ -88,6 +93,10 @@ export async function PUT(
         isActive: isActive !== undefined ? isActive : connection.isActive,
         syncFrequency: syncFrequency !== undefined ? syncFrequency : connection.syncFrequency,
         accessToken: accessToken !== undefined ? accessToken : connection.accessToken,
+        syncEvents: syncEvents !== undefined ? syncEvents : connection.syncEvents,
+        allowBookings: allowBookings !== undefined ? allowBookings : connection.allowBookings,
+        selectedCalendars: selectedCalendars !== undefined ? selectedCalendars : connection.selectedCalendars,
+        calendarSettings: calendarSettings !== undefined ? calendarSettings : connection.calendarSettings,
         updatedAt: new Date(),
       },
     });

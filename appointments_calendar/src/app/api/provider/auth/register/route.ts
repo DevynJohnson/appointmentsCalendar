@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
     const validatedData = validation.data;
 
     // Create provider with validated data
-    const provider = await ProviderAuthService.createProvider(validatedData);
+    const provider = await ProviderAuthService.createProvider({
+      ...validatedData,
+      phone: validatedData.phone || '', // Provide default empty string for phone if not provided
+    });
 
     // Create success response
     const response = NextResponse.json({

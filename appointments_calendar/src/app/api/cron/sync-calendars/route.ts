@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const connections = await prisma.calendarConnection.findMany({
       where: {
         isActive: true,
+        syncEvents: true, // Only sync connections that have syncEvents enabled
         // Only sync if we haven't synced recently based on syncFrequency
         OR: [
           { lastSyncAt: null }, // Never synced

@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    if (!customer.email || !customer.address || !customer.city || !customer.state) {
+    if (!customer.email) {
       return NextResponse.json({ 
-        error: 'Customer information incomplete' 
+        error: 'Customer email is required' 
       }, { status: 400 });
     }
 
@@ -198,20 +198,19 @@ export async function POST(request: NextRequest) {
         scheduledAt: appointmentStart,
         duration: duration,
         status: 'PENDING',
-        customerAddress: customer.address,
-        customerCity: customer.city,
-        customerState: customer.state,
-        customerZipCode: customer.zipCode,
         serviceType: serviceType || 'consultation',
         notes: notes,
       },
       include: {
-        calendarEvent: {
-          select: {
-            title: true,
-            location: true,
+        customer: true,
+        ...(slotType === 'manual' && eventId ? {
+          calendarEvent: {
+            select: {
+              title: true,
+              location: true,
+            }
           }
-        },
+        } : {}),
         provider: {
           select: {
             name: true,
@@ -222,23 +221,65 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    // Safely extract data from booking result
+    const bookingResult = booking as {
+      id: string;
+      scheduledAt: Date;
+      duration: number;
+      status: string;
+      serviceType: string;
+      customer: { firstName: string; lastName: string; email: string };
+      calendarEvent?: { title: string; location: string } | null;
+      provider: { name: string; email: string; phone: string };
+    };
+
+    // Send magic link email to customer and notification to provider
+    try {
+      const { ResendEmailService } = await import('@/lib/resend-email-service');
+      const emailService = new ResendEmailService();
+
+      const bookingDetails = {
+        id: bookingResult.id,
+        customerName: `${bookingResult.customer.firstName} ${bookingResult.customer.lastName}`,
+        customerEmail: bookingResult.customer.email,
+        providerName: bookingResult.provider.name,
+        providerEmail: bookingResult.provider.email,
+        scheduledAt: bookingResult.scheduledAt,
+        duration: bookingResult.duration,
+        serviceType: bookingResult.serviceType,
+        notes: notes,
+        location: bookingResult.calendarEvent?.location || calendarEvent?.location || 'To be confirmed',
+      };
+
+      // Send magic link to customer and notification to provider
+      await Promise.all([
+        emailService.sendCustomerMagicLink(bookingDetails),
+        emailService.sendProviderNotification(bookingDetails),
+      ]);
+
+    } catch (emailError) {
+      console.error('Failed to send emails:', emailError);
+      // Don't fail the booking if email sending fails
+    }
+
     return NextResponse.json({
       success: true,
+      message: 'Booking request submitted! Please check your email for a confirmation link.',
       booking: {
-        id: booking.id,
-        scheduledAt: booking.scheduledAt,
-        duration: booking.duration,
-        status: booking.status,
-        serviceType: booking.serviceType,
+        id: bookingResult.id,
+        scheduledAt: bookingResult.scheduledAt,
+        duration: bookingResult.duration,
+        status: bookingResult.status,
+        serviceType: bookingResult.serviceType,
         slotType: slotType,
         event: {
-          title: booking.calendarEvent?.title || calendarEvent?.title || 'Appointment',
-          location: booking.calendarEvent?.location || calendarEvent?.location || 'To be confirmed',
+          title: bookingResult.calendarEvent?.title || calendarEvent?.title || 'Appointment',
+          location: bookingResult.calendarEvent?.location || calendarEvent?.location || 'To be confirmed',
         },
         provider: {
-          name: booking.provider.name,
-          email: booking.provider.email,
-          phone: booking.provider.phone,
+          name: bookingResult.provider.name,
+          email: bookingResult.provider.email,
+          phone: bookingResult.provider.phone,
         }
       }
     });

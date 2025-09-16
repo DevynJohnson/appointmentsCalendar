@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     const state = searchParams.get('state');
     const serviceType = searchParams.get('serviceType');
     const daysAhead = parseInt(searchParams.get('daysAhead') || '30');
-    const mode = searchParams.get('mode') || 'auto'; // 'manual' or 'auto' or 'both'
+    const mode = searchParams.get('mode') || 'auto'; // Only 'auto' mode - calendar events are busy times
 
     if (!providerId) {
       return NextResponse.json({ error: 'providerId is required' }, { status: 400 });
@@ -45,13 +45,15 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let autoSlots: any[] = [];
 
-    // Get manual event-based slots if requested
-    if (mode === 'manual' || mode === 'both') {
-      manualSlots = await getManualEventSlots(providerId, now, maxDate, city, state, serviceType, provider);
+    // Skip manual event-based slots - calendar events represent busy times, not bookable slots
+    // Manual slots are disabled to prevent booking over existing calendar events
+    if (mode === 'manual') {
+      console.log('Manual mode disabled - calendar events are treated as busy times');
+      manualSlots = [];
     }
 
-    // Get automatic availability slots if requested  
-    if (mode === 'auto' || mode === 'both') {
+    // Get automatic availability slots (calendar events are treated as busy times)
+    if (mode === 'auto' || mode === 'both' || mode === 'manual') {
       try {
         const automaticSlots = await AvailabilityService.generateAutomaticSlots(
           providerId,
@@ -143,139 +145,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Helper function to get manual event-based slots (original logic)
-async function getManualEventSlots(
-  providerId: string,
-  startDate: Date,
-  endDate: Date,
-  city?: string | null,
-  state?: string | null,
-  serviceType?: string | null,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  provider?: any
-) {
-  // Build filters for calendar events
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const eventFilters: any = {
-    providerId,
-    allowBookings: true,
-    startTime: {
-      gte: startDate,
-      lte: endDate,
-    },
-  };
-
-  // Add location filters if provided
-  if (city) {
-    eventFilters.city = {
-      contains: city,
-      mode: 'insensitive',
-    };
-  }
-  if (state) {
-    eventFilters.state = {
-      contains: state,
-      mode: 'insensitive',
-    };
-  }
-
-  // Add service type filter if provided
-  if (serviceType) {
-    eventFilters.availableServices = {
-      has: serviceType,
-    };
-  }
-
-  // Get calendar events where bookings are allowed
-  const calendarEvents = await prisma.calendarEvent.findMany({
-    where: eventFilters,
-    include: {
-      bookings: {
-        where: {
-          status: {
-            in: ['CONFIRMED', 'PENDING'],
-          },
-        },
-        select: {
-          id: true,
-          scheduledAt: true,
-          duration: true,
-        },
-      },
-    },
-    orderBy: {
-      startTime: 'asc',
-    },
-  });
-
-  // Generate available slots for each event (original logic)
-  const availableSlots = [];
-
-  for (const event of calendarEvents) {
-    const currentBookings = event.bookings.length;
-    if (currentBookings >= event.maxBookings) {
-      continue;
-    }
-
-    const eventStart = new Date(event.startTime);
-    const eventEnd = new Date(event.endTime);
-    const slotDuration = provider?.defaultBookingDuration || 60;
-    const bufferTime = provider?.bufferTime || 15;
-
-    const eventDurationMinutes = (eventEnd.getTime() - eventStart.getTime()) / (1000 * 60);
-    if (eventDurationMinutes < slotDuration) {
-      continue;
-    }
-
-    const slotInterval = Math.min(30, slotDuration);
-    let currentSlotStart = new Date(eventStart);
-
-    while (currentSlotStart.getTime() + (slotDuration * 60 * 1000) <= eventEnd.getTime()) {
-      const slotEnd = new Date(currentSlotStart.getTime() + (slotDuration * 60 * 1000));
-
-      const hasConflict = event.bookings.some(booking => {
-        const bookingStart = new Date(booking.scheduledAt);
-        const bookingEnd = new Date(bookingStart.getTime() + (booking.duration * 60 * 1000));
-
-        const bufferStart = new Date(bookingStart.getTime() - (bufferTime * 60 * 1000));
-        const bufferEnd = new Date(bookingEnd.getTime() + (bufferTime * 60 * 1000));
-
-        return (
-          (currentSlotStart >= bufferStart && currentSlotStart < bufferEnd) ||
-          (slotEnd > bufferStart && slotEnd <= bufferEnd) ||
-          (currentSlotStart <= bufferStart && slotEnd >= bufferEnd)
-        );
-      });
-
-      if (!hasConflict) {
-        availableSlots.push({
-          id: `${event.id}-${currentSlotStart.getTime()}`,
-          eventId: event.id,
-          startTime: currentSlotStart.toISOString(),
-          endTime: slotEnd.toISOString(),
-          duration: slotDuration,
-          provider: {
-            id: provider?.id || providerId,
-            name: provider?.name || 'Provider',
-          },
-          location: {
-            display: event.location,
-            city: event.city,
-            state: event.state,
-            address: event.address,
-          },
-          availableServices: event.availableServices,
-          eventTitle: event.title,
-          slotsRemaining: event.maxBookings - currentBookings,
-          type: 'manual',
-        });
-      }
-
-      currentSlotStart = new Date(currentSlotStart.getTime() + (slotInterval * 60 * 1000));
-    }
-  }
-
-  return availableSlots;
 }
