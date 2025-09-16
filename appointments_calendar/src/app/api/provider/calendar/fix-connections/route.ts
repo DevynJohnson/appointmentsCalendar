@@ -40,11 +40,17 @@ export async function POST(request: NextRequest) {
 
         if (connection.accessToken) {
           try {
+            // Apple Calendar requires email and app password, others just need access token
+            if (connection.platform === 'APPLE') {
+              // For Apple Calendar, we would need the app password, but it's not stored in the connection
+              // Skip Apple Calendar for now in fix-connections since we don't have the app password
+              console.log(`Skipping Apple Calendar connection ${connection.id} - app password not available`);
+              continue;
+            }
+            
             availableCalendars = await CalendarConnectionService.getAvailableCalendars(
-              connection.platform as 'GOOGLE' | 'OUTLOOK' | 'TEAMS' | 'APPLE',
-              connection.accessToken,
-              connection.email,
-              connection.appPassword || undefined
+              connection.platform as 'GOOGLE' | 'OUTLOOK' | 'TEAMS',
+              connection.accessToken
             );
 
             // Filter out read-only calendars and set up settings
