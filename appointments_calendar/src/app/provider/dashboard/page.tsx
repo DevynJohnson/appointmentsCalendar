@@ -363,7 +363,104 @@ export default function ProviderDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Default Calendar Settings */}
+        <div className="mt-8 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">Default Calendar for New Bookings</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Choose where new booking events will be written. Only calendars with &quot;Allow Bookings&quot; enabled are shown here. If you do not see a calendar that you have connected, please make sure it has &quot;Allow Bookings&quot; enabled on the Manage Calendar page. If it still does not appear, try using the &quot;Fix Multi-Calendar Support&quot; button below.
+            </p>
+          </div>
+          <div className="px-6 py-4">
+            {!defaultCalendar || defaultCalendar.platforms.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-gray-900 mb-4">
+                  No calendar connections available. Connect a calendar first to set a default.
+                </p>
+                <button
+                  onClick={() => router.push('/provider/calendar/connect')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                >
+                  📅 Connect Calendar
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Current Default Display */}
+                {defaultCalendar.currentDefault && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+                      <span className="text-sm font-medium text-green-800">Current Default:</span>
+                      <span className="text-sm text-green-700">
+                        {defaultCalendar.currentDefault.platform} ({defaultCalendar.currentDefault.email})
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Platform Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Calendar Platform
+                  </label>
+                  <select
+                    value={selectedPlatform}
+                    onChange={(e) => {
+                      setSelectedPlatform(e.target.value);
+                      setSelectedCalendarId(''); // Reset calendar selection when platform changes
+                    }}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a platform</option>
+                    {defaultCalendar.platforms.map((platform) => (
+                      <option key={platform.platform} value={platform.platform}>
+                        {platform.platform} ({platform.calendars?.length || 0} calendar{(platform.calendars?.length || 0) !== 1 ? 's' : ''})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Calendar Selection */}
+                {selectedPlatform && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Specific Calendar
+                    </label>
+                    <select
+                      value={selectedCalendarId}
+                      onChange={(e) => setSelectedCalendarId(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select a calendar</option>
+                      {defaultCalendar.platforms
+                        .find(p => p.platform === selectedPlatform)
+                        ?.calendars?.map((calendar) => (
+                          <option key={calendar.calendarId} value={calendar.calendarId}>
+                            {calendar.calendarName} ({calendar.email})
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Update Button */}
+                {selectedPlatform && selectedCalendarId && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleUpdateDefaultCalendar}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                    >
+                      Set as Default Calendar
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Calendar Connections */}
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
@@ -372,16 +469,16 @@ export default function ProviderDashboard() {
                 <div className="flex gap-2">
                   <button
                     onClick={handleFixConnections}
-                    className="text-sm text-orange-600 hover:text-orange-800"
+                    className="inline-flex items-center px-3 py-1.5 border border-orange-600 text-xs font-medium rounded-md text-orange-600 bg-white hover:bg-orange-50 transition-colors"
                     title="Fix calendar connections to enable multi-calendar features"
                   >
-                    Fix Settings
+                    🔧 Fix Multi-Calendar Support
                   </button>
                   <button
                     onClick={() => router.push('/provider/calendar/connect')}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                   >
-                    Add New
+                    + Add New
                   </button>
                 </div>
               </div>
@@ -479,123 +576,13 @@ export default function ProviderDashboard() {
                             <span className="capitalize">{event.platform}</span>
                           </div>
                         </div>
-                        <div className="ml-4 text-right">
-                          <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            event.allowBookings 
-                              ? 'bg-green-100 text-green-800' 
-                              : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {event.allowBookings ? 'Bookable' : 'Private'}
-                          </div>
-                          {event.allowBookings && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {event.currentBookings}/{event.maxBookings} booked
-                            </p>
-                          )}
-                        </div>
+
                       </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Default Calendar Settings */}
-        <div className="mt-8 bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Default Calendar for New Bookings</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Choose where new booking events will be written. Only calendars with &quot;Allow Bookings&quot; enabled are shown here.
-            </p>
-          </div>
-          <div className="px-6 py-4">
-            {!defaultCalendar || defaultCalendar.platforms.length === 0 ? (
-              <div className="text-center py-6">
-                <p className="text-gray-900 mb-4">
-                  No calendar connections available. Connect a calendar first to set a default.
-                </p>
-                <button
-                  onClick={() => router.push('/provider/calendar/connect')}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                >
-                  📅 Connect Calendar
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Current Default Display */}
-                {defaultCalendar.currentDefault && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="flex items-center space-x-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-green-400"></span>
-                      <span className="text-sm font-medium text-green-800">Current Default:</span>
-                      <span className="text-sm text-green-700">
-                        {defaultCalendar.currentDefault.platform} ({defaultCalendar.currentDefault.email})
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Platform Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Calendar Platform
-                  </label>
-                  <select
-                    value={selectedPlatform}
-                    onChange={(e) => {
-                      setSelectedPlatform(e.target.value);
-                      setSelectedCalendarId(''); // Reset calendar selection when platform changes
-                    }}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Select a platform</option>
-                    {defaultCalendar.platforms.map((platform) => (
-                      <option key={platform.platform} value={platform.platform}>
-                        {platform.platform} ({platform.calendars?.length || 0} calendar{(platform.calendars?.length || 0) !== 1 ? 's' : ''})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Calendar Selection */}
-                {selectedPlatform && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Specific Calendar
-                    </label>
-                    <select
-                      value={selectedCalendarId}
-                      onChange={(e) => setSelectedCalendarId(e.target.value)}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select a calendar</option>
-                      {defaultCalendar.platforms
-                        .find(p => p.platform === selectedPlatform)
-                        ?.calendars?.map((calendar) => (
-                          <option key={calendar.calendarId} value={calendar.calendarId}>
-                            {calendar.calendarName} ({calendar.email})
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Update Button */}
-                {selectedPlatform && selectedCalendarId && (
-                  <div className="flex justify-end">
-                    <button
-                      onClick={handleUpdateDefaultCalendar}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                    >
-                      Set as Default Calendar
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </div>
     </div>

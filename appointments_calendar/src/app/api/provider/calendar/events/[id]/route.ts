@@ -1,9 +1,8 @@
 // API endpoint to manage individual calendar events
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { ProviderAuthService } from '@/lib/provider-auth';
 
-const prisma = new PrismaClient();
 
 // Update event settings
 export async function PUT(

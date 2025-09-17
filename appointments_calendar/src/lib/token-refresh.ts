@@ -1,7 +1,5 @@
 // Token refresh utilities for OAuth connections
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export interface TokenRefreshResult {
   accessToken: string;

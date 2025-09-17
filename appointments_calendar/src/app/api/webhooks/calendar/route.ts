@@ -1,11 +1,10 @@
 // Webhook endpoint for calendar platforms to notify us of changes
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { CalendarSyncService } from '@/lib/calendar-sync';
 import { headers } from 'next/headers';
 import crypto from 'crypto';
 
-const prisma = new PrismaClient();
 
 // Type definitions for webhook payloads
 interface MicrosoftNotification {

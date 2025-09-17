@@ -1,8 +1,6 @@
 // API endpoint for searching providers
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 interface SearchConditions {
   OR?: Array<{

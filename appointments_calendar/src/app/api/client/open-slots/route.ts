@@ -1,9 +1,7 @@
 // Enhanced API endpoint that supports both manual events and automatic availability
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { AvailabilityService } from '@/lib/availability-service';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {

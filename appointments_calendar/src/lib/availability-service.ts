@@ -1,7 +1,5 @@
 // Automatic availability service - generates slots during free time
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export class AvailabilityService {
   /**

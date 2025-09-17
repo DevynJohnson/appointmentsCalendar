@@ -1,9 +1,8 @@
 // Multi-calendar connection service
-import { PrismaClient, CalendarPlatform } from '@prisma/client';
+import { CalendarPlatform } from '@prisma/client';
 import axios from 'axios';
 import { AppleCalendarService } from './apple-calendar';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export interface AvailableCalendar {
   id: string;
@@ -45,18 +44,15 @@ export class CalendarConnectionService {
 
       const userEmail = userResponse.data.mail || userResponse.data.userPrincipalName;
 
-      // Store the connection
-      const connection = await prisma.calendarConnection.create({
-        data: {
-          providerId,
-          platform: CalendarPlatform.OUTLOOK,
-          email: userEmail,
-          calendarId: 'primary',
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          tokenExpiry: new Date(Date.now() + expires_in * 1000),
-          isActive: true,
-        },
+      // Use the enhanced createConnection method with multi-calendar support
+      const connection = await CalendarConnectionService.createConnection({
+        providerId,
+        platform: CalendarPlatform.OUTLOOK,
+        email: userEmail,
+        calendarId: 'primary',
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiry: new Date(Date.now() + expires_in * 1000),
       });
 
       return connection;
@@ -107,18 +103,15 @@ export class CalendarConnectionService {
 
       const userEmail = userResponse.data.email;
 
-      // Store the connection
-      const connection = await prisma.calendarConnection.create({
-        data: {
-          providerId,
-          platform: CalendarPlatform.GOOGLE,
-          email: userEmail,
-          calendarId: 'primary',
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          tokenExpiry: new Date(Date.now() + expires_in * 1000),
-          isActive: true,
-        },
+      // Use the enhanced createConnection method with multi-calendar support
+      const connection = await CalendarConnectionService.createConnection({
+        providerId,
+        platform: CalendarPlatform.GOOGLE,
+        email: userEmail,
+        calendarId: 'primary',
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiry: new Date(Date.now() + expires_in * 1000),
       });
 
       return connection;
@@ -158,18 +151,15 @@ export class CalendarConnectionService {
 
       const userEmail = userResponse.data.mail || userResponse.data.userPrincipalName;
 
-      // Store the connection
-      const connection = await prisma.calendarConnection.create({
-        data: {
-          providerId,
-          platform: CalendarPlatform.TEAMS,
-          email: userEmail,
-          calendarId: 'primary',
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          tokenExpiry: new Date(Date.now() + expires_in * 1000),
-          isActive: true,
-        },
+      // Use the enhanced createConnection method with multi-calendar support
+      const connection = await CalendarConnectionService.createConnection({
+        providerId,
+        platform: CalendarPlatform.TEAMS,
+        email: userEmail,
+        calendarId: 'primary',
+        accessToken: access_token,
+        refreshToken: refresh_token,
+        tokenExpiry: new Date(Date.now() + expires_in * 1000),
       });
 
       return connection;
@@ -316,6 +306,48 @@ export class CalendarConnectionService {
     tokenExpiry?: Date | null;
   }) {
     try {
+      // Initialize multi-calendar settings
+      let selectedCalendars: string[] = [connectionData.calendarId];
+      let calendarSettings: Record<string, { syncEvents: boolean; allowBookings: boolean; calendarName: string; canWrite: boolean }> = {
+        [connectionData.calendarId]: {
+          syncEvents: true,
+          allowBookings: true,
+          calendarName: `${connectionData.platform} Calendar`,
+          canWrite: true,
+        }
+      };
+
+      // Try to fetch available calendars and set up multi-calendar support
+      if (connectionData.accessToken) {
+        try {
+          // Only fetch for supported platforms (skip APPLE for now)
+          if (connectionData.platform !== 'APPLE') {
+            const availableCalendars = await CalendarConnectionService.getAvailableCalendars(
+              connectionData.platform as 'GOOGLE' | 'OUTLOOK' | 'TEAMS',
+              connectionData.accessToken
+            );
+
+            // Set up settings for all writeable calendars
+            const writeableCalendars = availableCalendars.filter(cal => cal.canWrite !== false);
+            selectedCalendars = writeableCalendars.map(cal => cal.id);
+            calendarSettings = writeableCalendars.reduce((settings, cal) => {
+              settings[cal.id] = {
+                syncEvents: true,
+                allowBookings: true,
+                calendarName: cal.name || 'Unnamed Calendar',
+                canWrite: cal.canWrite !== false,
+              };
+              return settings;
+            }, {} as Record<string, { syncEvents: boolean; allowBookings: boolean; calendarName: string; canWrite: boolean }>);
+
+            console.log(`Initialized multi-calendar support for ${connectionData.platform}: found ${availableCalendars.length} calendars`);
+          }
+        } catch (fetchError) {
+          console.error(`Failed to fetch available calendars during connection creation:`, fetchError);
+          // Fall back to primary calendar only (already set above)
+        }
+      }
+
       const connection = await prisma.calendarConnection.create({
         data: {
           providerId: connectionData.providerId,
@@ -326,9 +358,14 @@ export class CalendarConnectionService {
           refreshToken: connectionData.refreshToken,
           tokenExpiry: connectionData.tokenExpiry,
           isActive: true,
+          syncEvents: true,
+          allowBookings: true,
+          selectedCalendars: selectedCalendars,
+          calendarSettings: calendarSettings,
         },
       });
 
+      console.log(`✅ Calendar connection created with multi-calendar support: ${selectedCalendars.length} calendars available`);
       return connection;
     } catch (error) {
       console.error('Failed to create calendar connection:', error);
@@ -607,6 +644,50 @@ export class CalendarConnectionService {
     tokenExpiry?: Date | null;
   }) {
     try {
+      // Get the existing connection to check platform and update multi-calendar settings
+      const existingConnection = await prisma.calendarConnection.findUnique({
+        where: { id: connectionId },
+      });
+
+      if (!existingConnection) {
+        throw new Error('Connection not found');
+      }
+
+      let additionalUpdateData: Record<string, unknown> = {};
+
+      // If access token is being updated, refresh multi-calendar settings
+      if (updateData.accessToken && existingConnection.platform !== 'APPLE') {
+        try {
+          const availableCalendars = await CalendarConnectionService.getAvailableCalendars(
+            existingConnection.platform as 'GOOGLE' | 'OUTLOOK' | 'TEAMS',
+            updateData.accessToken
+          );
+
+          // Set up settings for all writeable calendars
+          const writeableCalendars = availableCalendars.filter(cal => cal.canWrite !== false);
+          const selectedCalendars = writeableCalendars.map(cal => cal.id);
+          const calendarSettings = writeableCalendars.reduce((settings, cal) => {
+            settings[cal.id] = {
+              syncEvents: true,
+              allowBookings: true,
+              calendarName: cal.name || 'Unnamed Calendar',
+              canWrite: cal.canWrite !== false,
+            };
+            return settings;
+          }, {} as Record<string, { syncEvents: boolean; allowBookings: boolean; calendarName: string; canWrite: boolean }>);
+
+          additionalUpdateData = {
+            selectedCalendars: selectedCalendars,
+            calendarSettings: calendarSettings,
+          };
+
+          console.log(`Refreshed multi-calendar settings for ${existingConnection.platform}: found ${availableCalendars.length} calendars`);
+        } catch (fetchError) {
+          console.error('Failed to refresh multi-calendar settings during update:', fetchError);
+          // Don't fail the entire update, just skip multi-calendar refresh
+        }
+      }
+
       const updatedConnection = await prisma.calendarConnection.update({
         where: { id: connectionId },
         data: {
@@ -615,6 +696,7 @@ export class CalendarConnectionService {
           ...(updateData.accessToken && { accessToken: updateData.accessToken }),
           ...(updateData.refreshToken && { refreshToken: updateData.refreshToken }),
           ...(updateData.tokenExpiry !== undefined && { tokenExpiry: updateData.tokenExpiry }),
+          ...additionalUpdateData,
         },
       });
 

@@ -1,10 +1,8 @@
 // Fix existing calendar connections to have proper syncEvents and allowBookings values
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
 import { CalendarConnectionService, AvailableCalendar } from '@/lib/calendar-connections';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 interface JWTPayload {
   providerId: string;

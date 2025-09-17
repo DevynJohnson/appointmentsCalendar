@@ -1,8 +1,6 @@
 // Booking service for customer appointments
-import { PrismaClient } from '@prisma/client';
 import { LocationService } from './location';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export class BookingService {
   /**

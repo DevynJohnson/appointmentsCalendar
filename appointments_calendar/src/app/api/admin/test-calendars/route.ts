@@ -1,7 +1,7 @@
 // Test endpoint to verify calendar connections without OAuth
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { CalendarSyncService } from '@/lib/calendar-sync';
+import { prisma } from '@/lib/db';
 
 type CalendarConnection = {
   platform: string;
@@ -13,8 +13,6 @@ type CalendarConnection = {
     name: string;
   };
 };
-
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {

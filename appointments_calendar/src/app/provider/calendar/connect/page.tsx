@@ -120,6 +120,34 @@ export default function CalendarConnectPage() {
     }
   };
 
+  const handleDisconnectCalendar = async (connectionId: string, platform: string) => {
+    if (!confirm(`Are you sure you want to disconnect your ${platform} calendar? This will remove all synced events and cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('providerToken');
+      const response = await fetch(`/api/provider/calendar/connections/${connectionId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect calendar');
+      }
+
+      // Reload the page to refresh the connections list
+      await loadData();
+      
+      // Show success message (you could replace this with a toast notification)
+      alert(`${platform} calendar disconnected successfully`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to disconnect calendar');
+    }
+  };
+
   const platformIcons = {
     outlook: '📧',
     teams: '👥',
@@ -212,12 +240,20 @@ export default function CalendarConnectPage() {
                         </svg>
                         Connected ({getConnectionForPlatform('outlook')?.email})
                       </div>
-                      <button
-                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('outlook')?.id}`)}
-                        className="inline-flex items-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 transition-colors"
-                      >
-                        Manage Calendar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('outlook')?.id}`)}
+                          className="inline-flex items-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 transition-colors"
+                        >
+                          Manage Calendar
+                        </button>
+                        <button
+                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('outlook')?.id || '', 'Outlook')}
+                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   )}
                   {authUrls?.outlook ? (
@@ -260,12 +296,20 @@ export default function CalendarConnectPage() {
                         </svg>
                         Connected ({getConnectionForPlatform('teams')?.email})
                       </div>
-                      <button
-                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('teams')?.id}`)}
-                        className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50 transition-colors"
-                      >
-                        Manage Calendar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('teams')?.id}`)}
+                          className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50 transition-colors"
+                        >
+                          Manage Calendar
+                        </button>
+                        <button
+                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('teams')?.id || '', 'Teams')}
+                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   )}
                   {authUrls?.teams ? (
@@ -308,12 +352,20 @@ export default function CalendarConnectPage() {
                         </svg>
                         Connected ({getConnectionForPlatform('google')?.email})
                       </div>
-                      <button
-                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('google')?.id}`)}
-                        className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
-                      >
-                        Manage Calendar
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('google')?.id}`)}
+                          className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
+                        >
+                          Manage Calendar
+                        </button>
+                        <button
+                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('google')?.id || '', 'Google')}
+                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
+                        >
+                          Disconnect
+                        </button>
+                      </div>
                     </div>
                   )}
                   {authUrls?.google ? (

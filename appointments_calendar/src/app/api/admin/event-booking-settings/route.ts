@@ -1,8 +1,6 @@
 // Admin endpoint to enable bookings on calendar events
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 type EventWithProvider = {
   id: string;

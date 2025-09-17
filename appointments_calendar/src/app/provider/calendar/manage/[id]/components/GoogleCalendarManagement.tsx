@@ -63,6 +63,35 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>([]);
   const [calendarSettings, setCalendarSettings] = useState<{[key: string]: {syncEvents: boolean, allowBookings: boolean}}>({});
 
+  // Modal state
+  const [confirmModal, setConfirmModal] = useState<{
+    show: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    confirmAction: () => void;
+    cancelText?: string;
+    danger?: boolean;
+  }>({
+    show: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    confirmAction: () => {},
+  });
+
+  const [cleanupModal, setCleanupModal] = useState<{
+    show: boolean;
+    calendarName: string;
+    calendarId: string;
+    onConfirm: () => void;
+  }>({
+    show: false,
+    calendarName: '',
+    calendarId: '',
+    onConfirm: () => {},
+  });
+
   const loadData = useCallback(async () => {
     try {
       const token = localStorage.getItem('providerToken');
@@ -96,12 +125,15 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
               .map((cal: AvailableCalendar) => cal.id) || [];
             setSelectedCalendars(initialSelected);
             
-            // Initialize calendar settings with current connection values
+            // Initialize calendar settings with saved per-calendar settings or fallback to connection-level settings
             const initialCalendarSettings: {[key: string]: {syncEvents: boolean, allowBookings: boolean}} = {};
+            const savedSettings = (connection as { calendarSettings?: Record<string, { syncEvents?: boolean; allowBookings?: boolean }> }).calendarSettings || null;
+            
             calendarsData.calendars?.forEach((cal: AvailableCalendar) => {
+              const savedCalendarSetting = savedSettings?.[cal.id];
               initialCalendarSettings[cal.id] = {
-                syncEvents: connection.syncEvents ?? true,
-                allowBookings: connection.allowBookings ?? true,
+                syncEvents: savedCalendarSetting?.syncEvents ?? connection.syncEvents ?? true,
+                allowBookings: savedCalendarSetting?.allowBookings ?? connection.allowBookings ?? true,
               };
             });
             setCalendarSettings(initialCalendarSettings);
@@ -121,7 +153,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar data');
     }
-  }, [connection.id, connection.calendarId, connection.syncEvents, connection.allowBookings]);
+  }, [connection]);
 
   useEffect(() => {
     loadData();
@@ -159,12 +191,73 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
         throw new Error(errorData.error || 'Failed to save settings');
       }
 
-      alert('Google Calendar settings saved successfully!');
+      setConfirmModal({
+        show: true,
+        title: 'Settings Saved',
+        message: 'Google Calendar settings have been saved successfully!',
+        confirmText: 'OK',
+        confirmAction: () => setConfirmModal({ ...confirmModal, show: false }),
+      });
       await loadData(); // Reload to get updated data
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const autoSaveCalendarSettings = async (newCalendarSettings: {[key: string]: {syncEvents: boolean, allowBookings: boolean}}) => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      
+      const primaryCalendarSettings = newCalendarSettings[connection.calendarId] || { syncEvents: true, allowBookings: true };
+      
+      // Calculate selectedCalendars based on which calendars have syncEvents enabled
+      const newSelectedCalendars = Object.entries(newCalendarSettings)
+        .filter(([, settings]) => settings.syncEvents)
+        .map(([calendarId]) => calendarId);
+      
+      const updateData = {
+        isActive,
+        syncFrequency,
+        syncEvents: primaryCalendarSettings.syncEvents,
+        allowBookings: primaryCalendarSettings.allowBookings,
+        selectedCalendars: newSelectedCalendars,
+        calendarSettings: newCalendarSettings,
+      };
+
+      const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Auto-save API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+          requestData: updateData
+        });
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        
+        throw new Error(errorData.error || 'Failed to save settings');
+      }
+
+      console.log('Calendar settings auto-saved successfully');
+    } catch (err) {
+      console.error('Failed to auto-save calendar settings:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save calendar settings');
     }
   };
 
@@ -244,6 +337,38 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to initiate re-authentication');
     }
+  };
+
+  const handleDisconnect = () => {
+    setConfirmModal({
+      show: true,
+      title: 'Disconnect Google Calendar',
+      message: 'Are you sure you want to disconnect this Google Calendar? This will remove all synced events and cannot be undone.',
+      confirmText: 'Disconnect',
+      cancelText: 'Cancel',
+      danger: true,
+      confirmAction: async () => {
+        try {
+          const token = localStorage.getItem('providerToken');
+          const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to disconnect calendar');
+          }
+
+          // Redirect back to calendar connections page
+          window.location.href = '/provider/calendar/connect?disconnected=google';
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Failed to disconnect calendar');
+          setConfirmModal({ ...confirmModal, show: false });
+        }
+      }
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -385,6 +510,13 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                     >
                       Re-authenticate
                     </button>
+                    
+                    <button
+                      onClick={handleDisconnect}
+                      className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                    >
+                      Disconnect Calendar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -445,20 +577,102 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                                 type="checkbox"
                                 checked={calendarSettings[calendar.id]?.syncEvents || false}
                                 onChange={(e) => {
-                                  setCalendarSettings({
+                                  const isEnabling = e.target.checked;
+                                  
+                                  if (!isEnabling) {
+                                    // Show confirmation modal for disabling sync
+                                    setConfirmModal({
+                                      show: true,
+                                      title: 'Disable Calendar Sync',
+                                      message: `Are you sure you want to stop syncing events from "${calendar.name}"? This will prevent new events from being imported.`,
+                                      confirmText: 'Disable Sync',
+                                      danger: true,
+                                      confirmAction: () => {
+                                        // Update the setting
+                                        const newSettings = {
+                                          ...calendarSettings,
+                                          [calendar.id]: {
+                                            ...calendarSettings[calendar.id],
+                                            syncEvents: false,
+                                            allowBookings: calendarSettings[calendar.id]?.allowBookings || false,
+                                          }
+                                        };
+                                        setCalendarSettings(newSettings);
+                                        
+                                        // Auto-save the settings (this will also update selectedCalendars in DB)
+                                        autoSaveCalendarSettings(newSettings);
+                                        
+                                        // Update local selectedCalendars state for UI consistency
+                                        setSelectedCalendars(selectedCalendars.filter(id => id !== calendar.id));
+                                        
+                                        // Show cleanup modal
+                                        setCleanupModal({
+                                          show: true,
+                                          calendarName: calendar.name,
+                                          calendarId: calendar.id,
+                                          onConfirm: async () => {
+                                            try {
+                                              const token = localStorage.getItem('providerToken');
+                                              const response = await fetch(`/api/provider/calendar/cleanup-events`, {
+                                                method: 'POST',
+                                                headers: {
+                                                  'Content-Type': 'application/json',
+                                                  Authorization: `Bearer ${token}`,
+                                                },
+                                                body: JSON.stringify({
+                                                  connectionId: connection.id,
+                                                  calendarId: calendar.id,
+                                                }),
+                                              });
+                                              
+                                              if (!response.ok) {
+                                                throw new Error('Failed to cleanup events');
+                                              }
+                                              
+                                              const result = await response.json();
+                                              setConfirmModal({
+                                                show: true,
+                                                title: 'Events Cleaned Up',
+                                                message: `Successfully removed ${result.deletedCount} previously synced events from "${calendar.name}".`,
+                                                confirmText: 'OK',
+                                                confirmAction: () => setConfirmModal({ ...confirmModal, show: false }),
+                                              });
+                                            } catch (cleanupError) {
+                                              console.error('Failed to cleanup events:', cleanupError);
+                                              setConfirmModal({
+                                                show: true,
+                                                title: 'Cleanup Failed',
+                                                message: 'Failed to remove previously synced events. You can try again later.',
+                                                confirmText: 'OK',
+                                                danger: true,
+                                                confirmAction: () => setConfirmModal({ ...confirmModal, show: false }),
+                                              });
+                                            }
+                                          }
+                                        });
+                                        
+                                        setConfirmModal({ ...confirmModal, show: false });
+                                      }
+                                    });
+                                    return; // Don't change the checkbox until confirmed
+                                  }
+                                  
+                                  // Enabling sync - no confirmation needed, auto-save
+                                  const newSettings = {
                                     ...calendarSettings,
                                     [calendar.id]: {
                                       ...calendarSettings[calendar.id],
-                                      syncEvents: e.target.checked,
+                                      syncEvents: true,
                                       allowBookings: calendarSettings[calendar.id]?.allowBookings || false,
                                     }
-                                  });
-                                  // Also update selectedCalendars for backward compatibility
-                                  if (e.target.checked) {
-                                    setSelectedCalendars([...selectedCalendars.filter(id => id !== calendar.id), calendar.id]);
-                                  } else {
-                                    setSelectedCalendars(selectedCalendars.filter(id => id !== calendar.id));
-                                  }
+                                  };
+                                  setCalendarSettings(newSettings);
+                                  
+                                  // Auto-save the settings (this will also update selectedCalendars in DB)
+                                  autoSaveCalendarSettings(newSettings);
+                                  
+                                  // Update local selectedCalendars state for UI consistency
+                                  setSelectedCalendars([...selectedCalendars.filter(id => id !== calendar.id), calendar.id]);
                                 }}
                                 className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
                               />
@@ -469,14 +683,18 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                                 type="checkbox"
                                 checked={calendarSettings[calendar.id]?.allowBookings || false}
                                 onChange={(e) => {
-                                  setCalendarSettings({
+                                  const newSettings = {
                                     ...calendarSettings,
                                     [calendar.id]: {
                                       ...calendarSettings[calendar.id],
                                       syncEvents: calendarSettings[calendar.id]?.syncEvents || false,
                                       allowBookings: e.target.checked
                                     }
-                                  });
+                                  };
+                                  setCalendarSettings(newSettings);
+                                  
+                                  // Auto-save the settings
+                                  autoSaveCalendarSettings(newSettings);
                                 }}
                                 className="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50"
                               />
@@ -621,6 +839,87 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal.show && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">{confirmModal.title}</h3>
+                <button
+                  onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">{confirmModal.message}</p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setConfirmModal({ ...confirmModal, show: false })}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {confirmModal.cancelText || 'Cancel'}
+                </button>
+                <button
+                  onClick={() => confirmModal.confirmAction()}
+                  className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                    confirmModal.danger
+                      ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                      : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                  }`}
+                >
+                  {confirmModal.confirmText}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cleanup Events Modal */}
+      {cleanupModal.show && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Clean Up Synced Events</h3>
+                <button
+                  onClick={() => setCleanupModal({ ...cleanupModal, show: false })}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-sm text-gray-500 mb-6">
+                Would you also like to remove all previously synced events from &ldquo;{cleanupModal.calendarName}&rdquo;? This cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setCleanupModal({ ...cleanupModal, show: false })}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Skip Cleanup
+                </button>
+                <button
+                  onClick={() => {
+                    cleanupModal.onConfirm();
+                    setCleanupModal({ ...cleanupModal, show: false });
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Remove Events
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

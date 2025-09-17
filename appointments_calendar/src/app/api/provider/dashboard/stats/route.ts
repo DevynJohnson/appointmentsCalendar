@@ -1,9 +1,8 @@
 // Provider dashboard statistics
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
-const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {

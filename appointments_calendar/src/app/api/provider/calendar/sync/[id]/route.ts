@@ -1,10 +1,9 @@
 // API endpoint to sync individual calendar connection
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import { ProviderAuthService } from '@/lib/provider-auth';
 import { CalendarSyncService } from '@/lib/calendar-sync';
 
-const prisma = new PrismaClient();
 
 export async function POST(
   request: NextRequest,

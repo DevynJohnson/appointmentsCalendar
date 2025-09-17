@@ -33,10 +33,20 @@ export const emailSchema = z
 // Phone validation schema
 export const phoneSchema = z
   .string()
-  .min(7, 'Phone number must be at least 7 digits')
-  .max(15, 'Phone number must be no more than 15 digits')
-  .regex(/^[\d\s\-\(\)\+\.]+$/, 'Phone number contains invalid characters')
-  .transform(phone => phone.replace(/\D/g, '')); // Remove non-digits
+  .refine((phone) => {
+    // Allow empty string (will be handled as optional in schemas)
+    if (!phone || phone.trim() === '') return true;
+    // Remove all non-digits for validation
+    const digitsOnly = phone.replace(/\D/g, '');
+    return digitsOnly.length >= 7 && digitsOnly.length <= 15;
+  }, 'Phone number must be between 7-15 digits')
+  .refine((phone) => {
+    // Allow empty string
+    if (!phone || phone.trim() === '') return true;
+    // Check for valid characters
+    return /^[\d\s\-\(\)\+\.]+$/.test(phone);
+  }, 'Phone number contains invalid characters')
+  .transform(phone => phone ? phone.replace(/\D/g, '') : ''); // Remove non-digits, return empty string if empty
 
 // Text field validation (for names, company, etc.)
 export const textFieldSchema = z
@@ -57,7 +67,7 @@ export const bioSchema = z
 export const providerRegistrationSchema = z.object({
   name: textFieldSchema,
   email: emailSchema,
-  phone: phoneSchema.optional(),
+  phone: z.string().transform(val => val.trim() === '' ? undefined : val).pipe(phoneSchema.optional()),
   password: passwordSchema,
   confirmPassword: z.string().optional(), // Validated separately in frontend
   company: textFieldSchema.optional(),

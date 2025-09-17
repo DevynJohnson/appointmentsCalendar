@@ -1,8 +1,6 @@
 // Authentication utilities for magic link system
-import { PrismaClient } from '@prisma/client';
 import crypto from 'crypto';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function createMagicLink(
   email: string, 

@@ -1,9 +1,7 @@
 // Debug endpoint to check calendar connection status
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 interface JWTPayload {
   providerId: string;

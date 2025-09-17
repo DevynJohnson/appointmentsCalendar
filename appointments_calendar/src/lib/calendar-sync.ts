@@ -1,8 +1,8 @@
 // Enhanced calendar synchronization service for multiple platforms
-import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
 import { ensureValidToken } from './token-refresh';
 import { LocationService } from './location';
+import { prisma } from '@/lib/db';
 
 // Calendar platform constants
 const CalendarPlatform = {
@@ -16,8 +16,6 @@ const CalendarPlatform = {
 type CalendarPlatform = typeof CalendarPlatform[keyof typeof CalendarPlatform];
 // import { CalendarConnectionService } from './calendar-connections'; // Unused import
 import { AppleCalendarService } from './apple-calendar';
-
-const prisma = new PrismaClient();
 
 export class CalendarSyncService {
   /**

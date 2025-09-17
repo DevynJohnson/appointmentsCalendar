@@ -1,9 +1,6 @@
-// API endpoint to manage individual calendar connections
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { ProviderAuthService } from '@/lib/provider-auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 // Get connection details
 export async function GET(

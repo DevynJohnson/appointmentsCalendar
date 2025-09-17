@@ -1,9 +1,7 @@
 // Periodic calendar sync cron job
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { CalendarSyncService } from '@/lib/calendar-sync';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {

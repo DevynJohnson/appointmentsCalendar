@@ -1,9 +1,7 @@
 // OAuth callback handler for calendar re-authentication
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {

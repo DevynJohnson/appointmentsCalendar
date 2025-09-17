@@ -1,8 +1,7 @@
 // Service to manage webhook subscriptions for calendar platforms
-import { PrismaClient, CalendarConnection } from '@prisma/client';
+import { CalendarConnection } from '@prisma/client';
 import axios from 'axios';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export class WebhookSubscriptionService {
   /**

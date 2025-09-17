@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CalendarConnectionService } from '@/lib/calendar-connections';
-import { PrismaClient } from '@prisma/client';
 import { ensureValidToken } from '@/lib/token-refresh';
 import jwt from 'jsonwebtoken';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
