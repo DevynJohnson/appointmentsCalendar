@@ -12,8 +12,8 @@ export default function About() {
             <p className="text-gray-600 mb-6">
               Appointment Calendar is a professional appointment booking system designed for businesses 
               operating across multiple locations. Our platform allows service providers to 
-              seamlessly sync their calendars and enable customers to book appointments based 
-              on real location and availability.
+              seamlessly sync their calendars, set their location for specific time frames and enable customers to book appointments based 
+              on both location and availability.
             </p>
 
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">Key Features</h2>
@@ -23,7 +23,7 @@ export default function About() {
                 <h3 className="font-semibold text-lg mb-2 text-blue-900">📍 Location-Based Booking</h3>
                 <p className="text-blue-800">
                   Customers can find and book appointments with providers based on their 
-                  current location and the provider&apos;s schedule.
+                  location and the provider&apos;s schedule.
                 </p>
               </div>
               
@@ -56,7 +56,7 @@ export default function About() {
             
             <div className="space-y-4 mb-8">
               <div className="flex items-start space-x-4">
-                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold">1</div>
+                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">1</div>
                 <div>
                   <h4 className="font-semibold">Provider Registration</h4>
                   <p className="text-gray-600">Service providers register and connect their calendars (Outlook, Google, Teams, Apple).</p>
@@ -64,26 +64,34 @@ export default function About() {
               </div>
               
               <div className="flex items-start space-x-4">
-                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold">2</div>
+                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">2</div>
                 <div>
                   <h4 className="font-semibold">Calendar Synchronization</h4>
-                  <p className="text-gray-600">System automatically syncs calendar events and extracts location information.</p>
+                  <p className="text-gray-600">Sync events from the calendars of your choice to automatically update your availability, allowing clients to book appointments in open time slots.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-4">
-                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold">3</div>
+                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">3</div>
+                <div>
+                  <h4 className="font-semibold">Update Your Location Information</h4>
+                  <p className="text-gray-600">You can set a default location for your main business location, or specify different locations for specific time frames allowing your clients to choose the most convenient option for them when you are in their area.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start space-x-4">
+                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">4</div>
                 <div>
                   <h4 className="font-semibold">Customer Booking</h4>
-                  <p className="text-gray-600">Customers search for providers by location and book available appointment slots.</p>
+                  <p className="text-gray-600">Customers can search for specific providers to see their locations and availability, and service providers can get a custom URL to share their booking page.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start space-x-4">
-                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold">4</div>
+                <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">5</div>
                 <div>
                   <h4 className="font-semibold">Real-Time Updates</h4>
-                  <p className="text-gray-600">Any calendar changes automatically update availability in real-time.</p>
+                  <p className="text-gray-600">Webhook-based notifications to ensure availability updates happen instantly when provider schedules change on compatiable platforms.</p>
                 </div>
               </div>
             </div>

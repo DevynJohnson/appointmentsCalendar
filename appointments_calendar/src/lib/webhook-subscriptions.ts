@@ -52,7 +52,15 @@ export class WebhookSubscriptionService {
    * Subscribe to Microsoft Graph notifications
    */
   private static async subscribeMicrosoftCalendar(connection: CalendarConnection): Promise<string | null> {
-    const webhookUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/webhooks/calendar?platform=outlook`;
+    const baseUrl = process.env.NEXTAUTH_URL ||'http://localhost:3000';
+    
+    // Check if we're in development/localhost
+    if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+      console.warn('Webhook subscriptions require a publicly accessible URL. Skipping webhook setup in development.');
+      throw new Error('Webhooks not supported in development environment. Deploy to production to use real-time sync.');
+    }
+    
+    const webhookUrl = `${baseUrl}/api/webhooks/calendar?platform=outlook`;
     
     const subscription = {
       changeType: 'created,updated,deleted',
@@ -99,7 +107,15 @@ export class WebhookSubscriptionService {
    * Subscribe to Google Calendar push notifications
    */
   private static async subscribeGoogleCalendar(connection: CalendarConnection): Promise<string | null> {
-    const webhookUrl = `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/webhooks/calendar?platform=google`;
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    
+    // Check if we're in development/localhost
+    if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+      console.warn('Webhook subscriptions require a publicly accessible URL. Skipping webhook setup in development.');
+      throw new Error('Webhooks not supported in development environment. Deploy to production to use real-time sync.');
+    }
+    
+    const webhookUrl = `${baseUrl}/api/webhooks/calendar?platform=google`;
     const channelId = `calendar_${connection.id}_${Date.now()}`;
     
     const watchRequest = {
@@ -245,7 +261,18 @@ export class WebhookSubscriptionService {
   /**
    * Set up webhooks for all active calendar connections
    */
-  static async setupAllWebhooks(providerId: string): Promise<void> {
+  static async setupAllWebhooks(providerId: string): Promise<{ success: boolean; message: string; errors: string[] }> {
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.VERCEL_URL || 'http://localhost:3000';
+    
+    // Check if we're in development
+    if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+      return {
+        success: false,
+        message: 'Real-time sync is not available in development environment. Please deploy your application to production to enable webhook subscriptions.',
+        errors: ['Development environment detected - webhooks require publicly accessible URLs']
+      };
+    }
+
     const connections = await prisma.calendarConnection.findMany({
       where: {
         providerId: providerId,
@@ -254,8 +281,26 @@ export class WebhookSubscriptionService {
       },
     });
 
+    const errors: string[] = [];
+    let successCount = 0;
+
     for (const connection of connections) {
-      await this.subscribeToCalendar(connection);
+      try {
+        await this.subscribeToCalendar(connection);
+        successCount++;
+      } catch (error) {
+        const errorMessage = `Failed to set up webhooks for ${connection.platform} calendar: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMessage);
+        console.error(errorMessage);
+      }
     }
+
+    return {
+      success: successCount > 0,
+      message: successCount > 0 
+        ? `Successfully set up real-time sync for ${successCount}/${connections.length} calendars`
+        : 'Failed to set up real-time sync for any calendars',
+      errors
+    };
   }
 }

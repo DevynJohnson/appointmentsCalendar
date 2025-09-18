@@ -25,8 +25,10 @@ export default function Nav({ type = 'public' }: NavProps) {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsLoading(true);
         const token = localStorage.getItem(type === 'provider' ? 'providerToken' : 'customerToken');
         if (!token) {
+          setUser(null);
           setIsLoading(false);
           return;
         }
@@ -44,17 +46,30 @@ export default function Nav({ type = 'public' }: NavProps) {
             setUser(userData.provider);
           } else {
             localStorage.removeItem('providerToken');
+            setUser(null);
           }
         }
       } catch (error) {
         console.error('Auth check failed:', error);
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     checkAuth();
-  }, [type]);
+
+    // Listen for storage changes (logout in other tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      const tokenKey = type === 'provider' ? 'providerToken' : 'customerToken';
+      if (e.key === tokenKey && !e.newValue) {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [type, pathname]);
 
   const handleLogout = async () => {
     try {
@@ -78,7 +93,7 @@ export default function Nav({ type = 'public' }: NavProps) {
   const providerNavItems = [
     { href: '/provider/dashboard', label: 'Dashboard', icon: '📊' },
     { href: '/provider/calendar/connect', label: 'Calendars', icon: '📅' },
-    { href: '/provider/events', label: 'Events', icon: '📋' },
+    { href: '/provider/location', label: 'Locations', icon: '📍' },
     { href: '/provider/bookings', label: 'Bookings', icon: '📝' },
     { href: '/provider/settings', label: 'Settings', icon: '⚙️' },
   ];

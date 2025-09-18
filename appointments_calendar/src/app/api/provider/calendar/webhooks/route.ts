@@ -110,12 +110,9 @@ export async function PUT(request: NextRequest) {
     }
 
     // Set up webhooks for all active connections
-    await WebhookSubscriptionService.setupAllWebhooks(provider.id);
+    const result = await WebhookSubscriptionService.setupAllWebhooks(provider.id);
 
-    return NextResponse.json({ 
-      success: true,
-      message: 'Webhook subscriptions set up for all calendars'
-    });
+    return NextResponse.json(result);
 
   } catch (error) {
     console.error('Error setting up all webhook subscriptions:', error);
