@@ -141,8 +141,26 @@ export async function GET(request: NextRequest) {
         );
       }
 
-    } catch (tokenError) {
+    } catch (tokenError: unknown) {
       console.error('❌ Token exchange failed:', tokenError);
+      
+      // Log detailed error information
+      if (tokenError && typeof tokenError === 'object' && 'response' in tokenError) {
+        const axiosError = tokenError as { response?: { status?: number; data?: unknown; headers?: unknown }; config?: { url?: string; method?: string; data?: unknown } };
+        if (axiosError.response) {
+          console.error('📋 Error response status:', axiosError.response.status);
+          console.error('📋 Error response data:', axiosError.response.data);
+          console.error('📋 Error response headers:', axiosError.response.headers);
+        }
+        if (axiosError.config) {
+          console.error('📋 Request config:', {
+            url: axiosError.config.url,
+            method: axiosError.config.method,
+            data: axiosError.config.data
+          });
+        }
+      }
+      
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
       if (isReauth) {
         return NextResponse.redirect(
