@@ -378,16 +378,16 @@ export class CalendarConnectionService {
    */
   static getAuthUrls() {
     const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
       `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read')}&` +
       `response_mode=query`;
 
     const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.TEAMS_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
       `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read')}&` +
       `response_mode=query`;
 
