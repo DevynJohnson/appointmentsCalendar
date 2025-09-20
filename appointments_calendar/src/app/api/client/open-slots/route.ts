@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { CalendarSyncService } from "@/lib/calendar-sync";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,6 +11,40 @@ export async function GET(request: NextRequest) {
 
     if (!providerId) {
       return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
+    }
+
+    // Calculate the booking date range first (we'll use this for optimized sync)
+    const syncStartDate = new Date();
+    const maxBookingDate = new Date();
+    maxBookingDate.setDate(syncStartDate.getDate() + daysAhead);
+    
+    const syncDateRange = {
+      start: syncStartDate,
+      end: maxBookingDate
+    };
+
+    // Trigger calendar sync for this provider before fetching slots
+    // This ensures we have the most up-to-date calendar data
+    try {
+      console.log(`🔄 Syncing calendar for provider ${providerId} for date range ${syncStartDate.toDateString()} to ${maxBookingDate.toDateString()}...`);
+      
+      // Get active calendar connections for this provider
+      const connections = await prisma.calendarConnection.findMany({
+        where: {
+          providerId: providerId,
+          isActive: true,
+          syncEvents: true,
+        }
+      });
+
+      // Use fast booking sync that only fetches events in the booking window
+      const syncResult = await CalendarSyncService.syncForBookingLookup(providerId, syncDateRange);
+      const successfulSyncs = syncResult.success ? syncResult.synced : 0;
+
+      console.log(`✅ Completed ${successfulSyncs}/${connections.length} calendar syncs for provider ${providerId}`);
+    } catch (syncError) {
+      // Don't fail the entire request if sync fails, just log it
+      console.warn(`⚠️ Calendar sync failed for provider ${providerId}:`, syncError);
     }
 
     // Fetch provider details

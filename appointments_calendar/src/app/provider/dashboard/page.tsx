@@ -97,6 +97,19 @@ export default function ProviderDashboard() {
         return;
       }
 
+      // Trigger calendar sync in background when dashboard loads
+      // This ensures provider sees fresh data when they check their dashboard
+      fetch('/api/provider/calendar/sync', {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ forceSync: false }) // Only sync if needed
+      }).catch(error => {
+        console.warn('Background calendar sync failed on dashboard load:', error);
+      });
+
       // Load dashboard stats
       const statsResponse = await fetch('/api/provider/dashboard/stats', {
         headers: { Authorization: `Bearer ${token}` },

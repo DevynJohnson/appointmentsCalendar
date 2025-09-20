@@ -17,11 +17,16 @@ type CalendarPlatform = typeof CalendarPlatform[keyof typeof CalendarPlatform];
 // import { CalendarConnectionService } from './calendar-connections'; // Unused import
 import { AppleCalendarService } from './apple-calendar';
 
+interface DateRange {
+  start: Date;
+  end: Date;
+}
+
 export class CalendarSyncService {
   /**
-   * Sync all calendars for a provider
+   * Sync all calendars for a provider with optional date range
    */
-  static async syncAllCalendars(providerId: string) {
+  static async syncAllCalendars(providerId: string, dateRange?: DateRange) {
     const connections = await prisma.calendarConnection.findMany({
       where: {
         providerId,
@@ -30,9 +35,8 @@ export class CalendarSyncService {
       },
     });
 
-    const results = [];
-
-    for (const connection of connections) {
+    // Run all calendar syncs in parallel for better performance
+    const syncPromises = connections.map(async (connection) => {
       try {
         let result;
         
@@ -58,24 +62,40 @@ export class CalendarSyncService {
           result = await this.syncAppleCalendar(syncConnection);
         } else {
           console.warn(`Unsupported platform: ${connection.platform}`);
-          continue;
+          return {
+            connectionId: connection.id,
+            platform: connection.platform,
+            success: false,
+            error: 'Unsupported platform',
+          };
         }
 
-        results.push({
+        return {
           connectionId: connection.id,
           platform: connection.platform,
           ...result,
-        });
+        };
       } catch (error) {
         console.error(`Failed to sync ${connection.platform} calendar:`, error);
-        results.push({
+        return {
           connectionId: connection.id,
           platform: connection.platform,
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        };
       }
-    }
+    });
+
+    // Wait for all syncs to complete in parallel
+    const promiseResults = await Promise.allSettled(syncPromises);
+    const results = promiseResults.map(result => 
+      result.status === 'fulfilled' ? result.value : {
+        connectionId: 'unknown',
+        platform: 'unknown',
+        success: false,
+        error: 'Promise rejected'
+      }
+    );
 
     return {
       success: true,
@@ -255,6 +275,7 @@ export class CalendarSyncService {
       // Sync events from each selected calendar
       for (const calendarId of calendarsToSync) {
         try {
+          console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
           console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
           const response = await axios.get(
             `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
@@ -457,5 +478,355 @@ export class CalendarSyncService {
     });
     
     console.log(`✅ Processed Google event: ${event.summary} (${startTime.toLocaleDateString()})`);
+  }
+
+  // Fast booking-specific sync methods with date range filtering
+  // These are optimized for client-side appointment booking lookups
+
+  /**
+   * Fast sync for booking lookups - only syncs events in the specified date range
+   */
+  static async syncForBookingLookup(providerId: string, dateRange: DateRange) {
+    console.log(`🚀 Fast booking sync for provider ${providerId} (${dateRange.start.toDateString()} to ${dateRange.end.toDateString()})`);
+    
+    const connections = await prisma.calendarConnection.findMany({
+      where: {
+        providerId,
+        isActive: true,
+        syncEvents: true,
+      }
+    });
+
+    const syncPromises = connections.map(async (connection) => {
+      const syncConnection = {
+        id: connection.id,
+        providerId: connection.providerId,
+        platform: connection.platform,
+        accessToken: connection.accessToken,
+        refreshToken: connection.refreshToken || undefined,
+        calendarId: connection.calendarId,
+        tokenExpiry: connection.tokenExpiry,
+        selectedCalendars: connection.selectedCalendars,
+        calendarSettings: connection.calendarSettings,
+      };
+
+      switch (connection.platform) {
+        case 'GOOGLE':
+          return this.syncGoogleCalendarForBooking(syncConnection, dateRange);
+        case 'OUTLOOK':
+          return this.syncOutlookCalendarForBooking(syncConnection, dateRange);
+        case 'TEAMS':
+          return this.syncTeamsCalendarForBooking(syncConnection, dateRange);
+        case 'APPLE':
+          return this.syncAppleCalendarForBooking(syncConnection, dateRange);
+        default:
+          console.warn(`Unsupported platform: ${connection.platform}`);
+          return { success: false, error: 'Unsupported platform' };
+      }
+    });
+
+    const results = await Promise.allSettled(syncPromises);
+    const successfulSyncs = results.filter(result => 
+      result.status === 'fulfilled' && result.value?.success
+    ).length;
+
+    console.log(`✅ Fast booking sync completed: ${successfulSyncs}/${connections.length} calendars synced`);
+    return { success: true, synced: successfulSyncs, total: connections.length };
+  }
+
+  private static async syncGoogleCalendarForBooking(connection: {
+    id: string;
+    providerId: string;
+    calendarId: string;
+    accessToken: string;
+    refreshToken?: string;
+    tokenExpiry: Date | null;
+    platform: string;
+    selectedCalendars?: unknown;
+    calendarSettings?: unknown;
+  }, dateRange: DateRange) {
+    try {
+      console.log('🌐 Fast Google calendar sync for booking lookup');
+
+      const validConnection = {
+        ...connection,
+        refreshToken: connection.refreshToken || null
+      };
+      const accessToken = await ensureValidToken(validConnection);
+
+      // Determine which calendars to sync (same logic as full sync)
+      let calendarsToSync: string[] = [connection.calendarId];
+      
+      if (connection.selectedCalendars && Array.isArray(connection.selectedCalendars)) {
+        const calendarSettings = connection.calendarSettings as Record<string, { syncEvents?: boolean; allowBookings?: boolean }> | null;
+        
+        calendarsToSync = (connection.selectedCalendars as string[]).filter(calendarId => {
+          const settings = calendarSettings?.[calendarId];
+          return settings?.syncEvents === true;
+        });
+      }
+
+      // Process all calendars in parallel for maximum speed
+      const calendarPromises = calendarsToSync.map(async (calendarId) => {
+        const params: Record<string, string | number | boolean> = {
+          maxResults: 250,
+          singleEvents: true,
+          orderBy: 'startTime',
+          timeMin: dateRange.start.toISOString(),
+          timeMax: dateRange.end.toISOString(), // Key optimization: only get events in booking window
+        };
+
+        console.log(`📡 Fast fetching Google Calendar events: ${calendarId} (${dateRange.start.toISOString()} to ${dateRange.end.toISOString()})`);
+        
+        const response = await axios.get(
+          `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+            params,
+          }
+        );
+
+        const events = response.data.items || [];
+        console.log(`📅 Found ${events.length} events in booking window for calendar ${calendarId}`);
+
+        let calendarEventsProcessed = 0;
+
+        // Process events for this calendar
+        for (const event of events) {
+          if (!event.start?.dateTime && !event.start?.date) continue;
+
+          const startTime = new Date(event.start.dateTime || event.start.date);
+          const endTime = new Date(event.end?.dateTime || event.end?.date || startTime);
+
+          // Skip events outside our exact range (extra safety)
+          if (startTime < dateRange.start || startTime > dateRange.end) continue;
+
+          // Get location info
+          const locationText = event.location || '';
+          const locationInfo = LocationService.parseLocation(locationText);
+
+          // Upsert calendar event
+          await prisma.calendarEvent.upsert({
+            where: {
+              externalEventId_platform_calendarId: {
+                externalEventId: event.id,
+                platform: CalendarPlatform.GOOGLE,
+                calendarId,
+              },
+            },
+            update: {
+              title: event.summary || 'Untitled Event',
+              description: event.description || '',
+              startTime,
+              endTime,
+              isAllDay: !event.start?.dateTime,
+              location: locationInfo.displayLocation,
+              lastSyncAt: new Date(),
+            },
+            create: {
+              providerId: connection.providerId,
+              connectionId: connection.id,
+              externalEventId: event.id,
+              platform: CalendarPlatform.GOOGLE,
+              calendarId,
+              title: event.summary || 'Untitled Event',
+              description: event.description || '',
+              startTime,
+              endTime,
+              isAllDay: !event.start?.dateTime,
+              location: locationInfo.displayLocation,
+              allowBookings: true,
+              maxBookings: 1,
+            },
+          });
+
+          calendarEventsProcessed++;
+        }
+
+        return calendarEventsProcessed;
+      });
+
+      // Wait for all calendar syncs to complete in parallel
+      const calendarResults = await Promise.allSettled(calendarPromises);
+      const totalEventsProcessed = calendarResults
+        .filter(result => result.status === 'fulfilled')
+        .reduce((total, result) => total + (result.value || 0), 0);
+
+      console.log(`✅ Fast Google sync processed ${totalEventsProcessed} events across ${calendarsToSync.length} calendars`);
+
+      // Update connection sync timestamp
+      await prisma.calendarConnection.update({
+        where: { id: connection.id },
+        data: { lastSyncAt: new Date() },
+      });
+
+      return { success: true, eventsProcessed: totalEventsProcessed };
+    } catch (error) {
+      console.error('Fast Google calendar sync failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  private static async syncOutlookCalendarForBooking(connection: {
+    id: string;
+    providerId: string;
+    calendarId: string;
+    accessToken: string;
+    refreshToken?: string;
+    tokenExpiry: Date | null;
+    platform: string;
+    selectedCalendars?: unknown;
+    calendarSettings?: unknown;
+  }, dateRange: DateRange) {
+    try {
+      console.log('🌐 Fast Outlook calendar sync for booking lookup');
+
+      const validConnection = {
+        ...connection,
+        refreshToken: connection.refreshToken || null
+      };
+      const accessToken = await ensureValidToken(validConnection);
+
+      let calendarsToSync: string[] = [connection.calendarId];
+      
+      if (connection.selectedCalendars && Array.isArray(connection.selectedCalendars)) {
+        const calendarSettings = connection.calendarSettings as Record<string, { syncEvents?: boolean; allowBookings?: boolean }> | null;
+        
+        calendarsToSync = (connection.selectedCalendars as string[]).filter(calendarId => {
+          const settings = calendarSettings?.[calendarId];
+          return settings?.syncEvents === true;
+        });
+      }
+
+      // Process all calendars in parallel for maximum speed
+      const calendarPromises = calendarsToSync.map(async (calendarId) => {
+        // Microsoft Graph API with date filtering
+        const startFilter = dateRange.start.toISOString();
+        const endFilter = dateRange.end.toISOString();
+        
+        const params: Record<string, string | number> = {
+          $select: 'id,subject,body,start,end,location,isAllDay',
+          $top: 250,
+          $filter: `start/dateTime ge '${startFilter}' and start/dateTime le '${endFilter}'`,
+        };
+
+        console.log(`📡 Fast fetching Outlook events for ${calendarId} (${startFilter} to ${endFilter})`);
+        
+        const response = await axios.get(
+          `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            params,
+          }
+        );
+
+        const events = response.data.value || [];
+        console.log(`📅 Found ${events.length} events in booking window for Outlook calendar ${calendarId}`);
+
+        let calendarEventsProcessed = 0;
+
+        for (const event of events) {
+          const startTime = new Date(event.start.dateTime);
+          const endTime = new Date(event.end.dateTime);
+
+          // Skip events outside our range (extra safety)
+          if (startTime < dateRange.start || startTime > dateRange.end) continue;
+
+          const locationText = event.location?.displayName || '';
+          const locationInfo = LocationService.parseLocation(locationText);
+
+          await prisma.calendarEvent.upsert({
+            where: {
+              externalEventId_platform_calendarId: {
+                externalEventId: event.id,
+                platform: CalendarPlatform.OUTLOOK,
+                calendarId,
+              },
+            },
+            update: {
+              title: event.subject || 'Untitled Event',
+              description: event.body?.content || '',
+              startTime,
+              endTime,
+              isAllDay: event.isAllDay || false,
+              location: locationInfo.displayLocation,
+              lastSyncAt: new Date(),
+            },
+            create: {
+              providerId: connection.providerId,
+              connectionId: connection.id,
+              externalEventId: event.id,
+              platform: CalendarPlatform.OUTLOOK,
+              calendarId,
+              title: event.subject || 'Untitled Event',
+              description: event.body?.content || '',
+              startTime,
+              endTime,
+              isAllDay: event.isAllDay || false,
+              location: locationInfo.displayLocation,
+              allowBookings: true,
+              maxBookings: 1,
+            },
+          });
+
+          calendarEventsProcessed++;
+        }
+
+        return calendarEventsProcessed;
+      });
+
+      // Wait for all calendar syncs to complete in parallel
+      const calendarResults = await Promise.allSettled(calendarPromises);
+      const totalEventsProcessed = calendarResults
+        .filter(result => result.status === 'fulfilled')
+        .reduce((total, result) => total + (result.value || 0), 0);
+
+      console.log(`✅ Fast Outlook sync processed ${totalEventsProcessed} events across ${calendarsToSync.length} calendars`);
+
+      await prisma.calendarConnection.update({
+        where: { id: connection.id },
+        data: { lastSyncAt: new Date() },
+      });
+
+      return { success: true, eventsProcessed: totalEventsProcessed };
+    } catch (error) {
+      console.error('Fast Outlook calendar sync failed:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  private static async syncTeamsCalendarForBooking(
+    connection: {
+      id: string;
+      providerId: string;
+      calendarId: string;
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiry: Date | null;
+      platform: string;
+    }, 
+    dateRange: DateRange
+  ) {
+    console.log(`⚠️ Teams calendar fast sync not yet implemented, falling back to regular sync for ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);
+    return this.syncTeamsCalendar(connection);
+  }
+
+  private static async syncAppleCalendarForBooking(
+    connection: {
+      id: string;
+      providerId: string;
+      calendarId: string;
+      accessToken: string;
+      refreshToken?: string;
+      tokenExpiry: Date | null;
+      platform: string;
+    }, 
+    dateRange: DateRange
+  ) {
+    console.log(`⚠️ Apple calendar fast sync not yet implemented, falling back to regular sync for ${dateRange.start.toDateString()} - ${dateRange.end.toDateString()}`);
+    return this.syncAppleCalendar(connection);
   }
 }
