@@ -1,7 +1,8 @@
-// OAuth callback handler for calendar re-authentication
+// OAuth callback handler for calendar authentication
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import { prisma } from '@/lib/db';
+import { CalendarConnectionService } from '@/lib/calendar-connections';
 
 export async function GET(request: NextRequest) {
   try {
@@ -37,9 +38,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { platform, connectionId, reauth } = stateData;
+    const { platform, connectionId, reauth, providerId } = stateData;
 
-    if (!platform || !connectionId || !reauth) {
+    // Check if this is a re-authentication or new connection flow
+    const isReauth = reauth && connectionId;
+    const isNewConnection = providerId && !reauth;
+
+    if (!platform || (!isReauth && !isNewConnection)) {
       console.error('❌ Missing required state data');
       return NextResponse.redirect(
         new URL(`/provider/dashboard?error=${encodeURIComponent('Invalid callback state')}`, request.url)
@@ -87,33 +92,57 @@ export async function GET(request: NextRequest) {
       const { access_token, refresh_token, expires_in } = tokenResponse.data;
       console.log('✅ Tokens received successfully');
 
-      // Update the existing connection with new tokens
       const expiryDate = new Date();
       expiryDate.setSeconds(expiryDate.getSeconds() + (expires_in || 3600));
 
-      await prisma.calendarConnection.update({
-        where: { id: connectionId },
-        data: {
-          accessToken: access_token,
-          refreshToken: refresh_token || undefined, // Keep existing if no new one
-          tokenExpiry: expiryDate,
-          isActive: true, // Reactivate the connection
-          updatedAt: new Date(),
-        },
-      });
+      if (isReauth) {
+        // Update existing connection with new tokens
+        await prisma.calendarConnection.update({
+          where: { id: connectionId },
+          data: {
+            accessToken: access_token,
+            refreshToken: refresh_token || undefined, // Keep existing if no new one
+            tokenExpiry: expiryDate,
+            isActive: true, // Reactivate the connection
+            updatedAt: new Date(),
+          },
+        });
 
-      console.log('✅ Connection updated with new tokens');
+        console.log('✅ Connection updated with new tokens');
 
-      // Redirect back to the calendar management page
-      return NextResponse.redirect(
-        new URL(`/provider/calendar/manage/${connectionId}?success=${encodeURIComponent('Calendar re-authenticated successfully!')}`, request.url)
-      );
+        // Redirect back to the calendar management page
+        return NextResponse.redirect(
+          new URL(`/provider/calendar/manage/${connectionId}?success=${encodeURIComponent('Calendar re-authenticated successfully!')}`, request.url)
+        );
+      } else {
+        // New connection - use CalendarConnectionService
+        if (platform === 'GOOGLE') {
+          await CalendarConnectionService.connectGoogleCalendar(providerId, code);
+        } else if (platform === 'outlook' || platform === 'OUTLOOK') {
+          await CalendarConnectionService.connectOutlookCalendar(providerId, code);
+        } else if (platform === 'teams' || platform === 'TEAMS') {
+          await CalendarConnectionService.connectTeamsCalendar(providerId, code);
+        }
+
+        console.log('✅ New connection created successfully');
+
+        // Redirect to calendar connect page with success
+        return NextResponse.redirect(
+          new URL(`/provider/calendar/connect?success=calendar_connected`, request.url)
+        );
+      }
 
     } catch (tokenError) {
       console.error('❌ Token exchange failed:', tokenError);
-      return NextResponse.redirect(
-        new URL(`/provider/calendar/manage/${connectionId}?error=${encodeURIComponent('Failed to refresh calendar authentication')}`, request.url)
-      );
+      if (isReauth) {
+        return NextResponse.redirect(
+          new URL(`/provider/calendar/manage/${connectionId}?error=${encodeURIComponent('Failed to refresh calendar authentication')}`, request.url)
+        );
+      } else {
+        return NextResponse.redirect(
+          new URL(`/provider/calendar/connect?error=${encodeURIComponent('Failed to connect calendar')}`, request.url)
+        );
+      }
     }
 
   } catch (error) {
