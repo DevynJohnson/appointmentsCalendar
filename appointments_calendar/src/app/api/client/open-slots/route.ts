@@ -1,23 +1,18 @@
-// Enhanced API endpoint that supports both manual events and automatic availability
-import { NextRequest, NextResponse } from 'next/server';
-import { AvailabilityService } from '@/lib/availability-service';
-import { prisma } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const providerId = searchParams.get('providerId');
-    const city = searchParams.get('city');
-    const state = searchParams.get('state');
-    const serviceType = searchParams.get('serviceType');
-    const daysAhead = parseInt(searchParams.get('daysAhead') || '30');
-    const mode = searchParams.get('mode') || 'auto'; // Only 'auto' mode - calendar events are busy times
+    const { searchParams } = new URL(request.url);
+    const providerId = searchParams.get("providerId");
+    const serviceType = searchParams.get("serviceType");
+    const daysAhead = parseInt(searchParams.get("daysAhead") || "14");
 
     if (!providerId) {
-      return NextResponse.json({ error: 'providerId is required' }, { status: 400 });
+      return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
     }
 
-    // Get provider details
+    // Fetch provider details
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -30,117 +25,214 @@ export async function GET(request: NextRequest) {
     });
 
     if (!provider) {
-      return NextResponse.json({ error: 'Provider not found' }, { status: 404 });
+      return NextResponse.json({ error: "Provider not found" }, { status: 404 });
     }
 
     // Calculate date range
     const now = new Date();
     const maxDate = new Date();
-    maxDate.setDate(now.getDate() + Math.min(daysAhead, provider.advanceBookingDays));
+    maxDate.setDate(now.getDate() + Math.min(daysAhead, provider.advanceBookingDays || 30));
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let manualSlots: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let autoSlots: any[] = [];
+    // Fetch provider locations using the foreign key relationship
+    const providerLocations = await prisma.providerLocation.findMany({
+      where: {
+        providerId: providerId,
+        startDate: { lte: maxDate },
+        endDate: { gte: now },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        city: true,
+        stateProvince: true,
+        country: true,
+        description: true,
+        startDate: true,
+        endDate: true,
+        isDefault: true,
+      },
+      orderBy: [
+        { isDefault: 'desc' },
+        { startDate: 'desc' }
+      ]
+    });
 
-    // Skip manual event-based slots - calendar events represent busy times, not bookable slots
-    // Manual slots are disabled to prevent booking over existing calendar events
-    if (mode === 'manual') {
-      console.log('Manual mode disabled - calendar events are treated as busy times');
-      manualSlots = [];
-    }
+    // Helper function to find the appropriate location for a specific date
+    const getLocationForDate = (appointmentDate: Date): string => {
+      // First, try to find a date-specific location (non-default)
+      const dateSpecificLocation = providerLocations.find(location => 
+        !location.isDefault &&
+        appointmentDate >= location.startDate &&
+        appointmentDate <= location.endDate
+      );
 
-    // Get automatic availability slots (calendar events are treated as busy times)
-    if (mode === 'auto' || mode === 'both' || mode === 'manual') {
-      try {
-        const automaticSlots = await AvailabilityService.generateAutomaticSlots(
-          providerId,
-          now,
-          maxDate,
-          {
-            businessHours: { start: "09:00", end: "17:00" },
-            workingDays: [1, 2, 3, 4, 5], // Mon-Fri
-            slotDuration: provider.defaultBookingDuration,
-            bufferTime: provider.bufferTime,
-            includeWeekends: false,
-          }
-        );
+      if (dateSpecificLocation) {
+        return formatLocationDisplay(dateSpecificLocation);
+      }
 
-        // Convert automatic slots to the same format as manual slots
-        autoSlots = automaticSlots.map(slot => ({
-          id: slot.id,
-          eventId: `auto-${slot.id}`,
-          startTime: slot.startTime,
-          endTime: slot.endTime,
-          duration: slot.duration,
-          provider: {
-            id: provider.id,
-            name: provider.name,
-          },
-          location: {
-            display: 'Provider Office', // Default location for auto slots
-            city: city || '',
-            state: state || '',
-            address: '',
-          },
-          availableServices: serviceType ? [serviceType] : ['consultation', 'maintenance'],
-          eventTitle: 'Available Appointment',
-          slotsRemaining: 1,
-          type: 'automatic',
-        }));
+      // Fall back to default location
+      const defaultLocation = providerLocations.find(location => location.isDefault);
+      if (defaultLocation) {
+        return formatLocationDisplay(defaultLocation);
+      }
 
-        // Filter auto slots by location if specified
-        if (city || state) {
-          autoSlots = autoSlots.filter(slot => {
-            if (city && !slot.location.city.toLowerCase().includes(city.toLowerCase())) {
-              return false;
-            }
-            if (state && !slot.location.state.toLowerCase().includes(state.toLowerCase())) {
-              return false;
-            }
-            return true;
+      // Final fallback
+      return "Contact provider for location details";
+    };
+
+    // Helper function to format location display string
+    const formatLocationDisplay = (location: {
+      city: string;
+      stateProvince: string;
+      country: string;
+      description: string | null;
+    }): string => {
+      const locationParts = [];
+      
+      if (location.city) locationParts.push(location.city);
+      if (location.stateProvince) locationParts.push(location.stateProvince);
+      if (location.country) locationParts.push(location.country);
+      
+      let locationString = locationParts.join(', ');
+      
+      if (location.description) {
+        locationString += ` - ${location.description}`;
+      }
+      
+      return locationString || "Contact provider for location details";
+    };
+
+    // Fetch existing calendar events to find busy times
+    const existingEvents = await prisma.calendarEvent.findMany({
+      where: {
+        providerId,
+        startTime: {
+          gte: now,
+          lte: maxDate,
+        },
+      },
+      select: {
+        startTime: true,
+        endTime: true,
+      },
+      orderBy: {
+        startTime: 'asc',
+      },
+    });
+
+    // Fetch existing bookings to find busy times
+    const existingBookings = await prisma.booking.findMany({
+      where: {
+        providerId,
+        scheduledAt: {
+          gte: now,
+          lte: maxDate,
+        },
+        status: {
+          notIn: ['CANCELLED', 'NO_SHOW']
+        }
+      },
+      select: {
+        scheduledAt: true,
+        duration: true,
+      },
+    });
+
+    // Helper function to check if a time slot conflicts with existing events/bookings
+    const isTimeSlotBusy = (startTime: Date, endTime: Date): boolean => {
+      // Check against calendar events
+      for (const event of existingEvents) {
+        if (startTime < event.endTime && endTime > event.startTime) {
+          return true; // Overlaps with existing event
+        }
+      }
+
+      // Check against existing bookings
+      for (const booking of existingBookings) {
+        const bookingEnd = new Date(booking.scheduledAt.getTime() + booking.duration * 60000);
+        if (startTime < bookingEnd && endTime > booking.scheduledAt) {
+          return true; // Overlaps with existing booking
+        }
+      }
+
+      return false;
+    };
+
+    // Generate available time slots
+    const slots = [];
+    const slotDuration = provider.defaultBookingDuration;
+    const bufferTime = provider.bufferTime;
+
+    // Business hours (could be made configurable per provider)
+    const businessHours = {
+      start: 9, // 9 AM
+      end: 17,  // 5 PM
+    };
+
+    // Generate slots for each day in the range
+    for (let date = new Date(now); date <= maxDate; date.setDate(date.getDate() + 1)) {
+      // Skip weekends (could be made configurable)
+      if (date.getDay() === 0 || date.getDay() === 6) continue;
+
+      // Generate slots for this day
+      for (let hour = businessHours.start; hour < businessHours.end; hour++) {
+        for (let minute = 0; minute < 60; minute += slotDuration + bufferTime) {
+          const slotStart = new Date(date);
+          slotStart.setHours(hour, minute, 0, 0);
+          
+          const slotEnd = new Date(slotStart);
+          slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
+
+          // Skip if slot is in the past
+          if (slotStart <= now) continue;
+
+          // Skip if slot end would go beyond business hours
+          if (slotEnd.getHours() > businessHours.end) break;
+
+          // Skip if this time slot is busy
+          if (isTimeSlotBusy(slotStart, slotEnd)) continue;
+
+          // This is an available slot!
+          slots.push({
+            id: `slot-${slotStart.getTime()}`,
+            eventId: `auto-${slotStart.getTime()}`,
+            startTime: slotStart.toISOString(),
+            endTime: slotEnd.toISOString(),
+            duration: slotDuration,
+            provider: {
+              id: provider.id,
+              name: provider.name,
+            },
+            location: {
+              display: getLocationForDate(slotStart),
+            },
+            availableServices: ['consultation', 'maintenance', 'emergency', 'follow-up'],
+            eventTitle: 'Available Appointment',
+            slotsRemaining: 1,
+            type: 'automatic',
           });
         }
-      } catch (error) {
-        console.error('Failed to generate automatic slots:', error);
-        // Continue with manual slots only
       }
     }
 
-    // Combine and sort all slots
-    const allSlots = [...manualSlots, ...autoSlots].sort((a, b) => 
-      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-    );
+    // Filter by service type if specified
+    const filteredSlots = serviceType 
+      ? slots.filter(slot => slot.availableServices.includes(serviceType))
+      : slots;
 
     return NextResponse.json({
       success: true,
+      providerId,
       provider: {
         id: provider.id,
         name: provider.name,
       },
-      totalSlots: allSlots.length,
-      manualSlots: manualSlots.length,
-      autoSlots: autoSlots.length,
-      mode: mode,
-      slots: allSlots,
-      filters: {
-        providerId,
-        city,
-        state,
-        serviceType,
-        daysAhead,
-        mode,
-      },
+      totalSlots: filteredSlots.length,
+      slots: filteredSlots,
     });
 
   } catch (error) {
-    console.error('Failed to fetch availability:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to fetch availability',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    console.error("Open slots API error:", error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

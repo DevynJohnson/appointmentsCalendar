@@ -62,7 +62,6 @@ export class BookingService {
     customerFirstName?: string;
     customerLastName?: string;
     customerPhone?: string;
-    customerAddress: string;
     customerCity: string;
     customerState: string;
     customerZipCode?: string;

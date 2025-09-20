@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Nav from '@/components/Nav';
 
 interface Slot {
   id: string;
@@ -188,7 +189,9 @@ function ClientBookingContent() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
+    <>
+      <Nav type="public" />
+      <div className="max-w-4xl mx-auto py-8 px-4">
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-start">
@@ -479,5 +482,6 @@ function ClientBookingContent() {
         </div>
       )}
     </div>
+    </>
   );
 }
