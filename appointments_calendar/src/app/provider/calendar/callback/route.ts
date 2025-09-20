@@ -46,8 +46,9 @@ export async function GET(request: NextRequest) {
 
     if (!platform || (!isReauth && !isNewConnection)) {
       console.error('❌ Missing required state data');
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
       return NextResponse.redirect(
-        new URL(`/provider/dashboard?error=${encodeURIComponent('Invalid callback state')}`, request.url)
+        new URL(`/provider/dashboard?error=${encodeURIComponent('Invalid callback state')}`, baseUrl)
       );
     }
 
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
     try {
       switch (platform) {
         case 'GOOGLE':
+        case 'google':
           tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
             client_id: process.env.GOOGLE_CLIENT_ID!,
             client_secret: process.env.GOOGLE_CLIENT_SECRET!,
@@ -69,7 +71,9 @@ export async function GET(request: NextRequest) {
           break;
 
         case 'OUTLOOK':
+        case 'outlook':
         case 'TEAMS':
+        case 'teams':
           tokenResponse = await axios.post(
             'https://login.microsoftonline.com/common/oauth2/v2.0/token',
             new URLSearchParams({
@@ -111,12 +115,13 @@ export async function GET(request: NextRequest) {
         console.log('✅ Connection updated with new tokens');
 
         // Redirect back to the calendar management page
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
         return NextResponse.redirect(
-          new URL(`/provider/calendar/manage/${connectionId}?success=${encodeURIComponent('Calendar re-authenticated successfully!')}`, request.url)
+          new URL(`/provider/calendar/manage/${connectionId}?success=${encodeURIComponent('Calendar re-authenticated successfully!')}`, baseUrl)
         );
       } else {
         // New connection - use CalendarConnectionService
-        if (platform === 'GOOGLE') {
+        if (platform === 'GOOGLE' || platform === 'google') {
           await CalendarConnectionService.connectGoogleCalendar(providerId, code);
         } else if (platform === 'outlook' || platform === 'OUTLOOK') {
           await CalendarConnectionService.connectOutlookCalendar(providerId, code);
@@ -127,28 +132,31 @@ export async function GET(request: NextRequest) {
         console.log('✅ New connection created successfully');
 
         // Redirect to calendar connect page with success
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
         return NextResponse.redirect(
-          new URL(`/provider/calendar/connect?success=calendar_connected`, request.url)
+          new URL(`/provider/calendar/connect?success=calendar_connected`, baseUrl)
         );
       }
 
     } catch (tokenError) {
       console.error('❌ Token exchange failed:', tokenError);
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
       if (isReauth) {
         return NextResponse.redirect(
-          new URL(`/provider/calendar/manage/${connectionId}?error=${encodeURIComponent('Failed to refresh calendar authentication')}`, request.url)
+          new URL(`/provider/calendar/manage/${connectionId}?error=${encodeURIComponent('Failed to refresh calendar authentication')}`, baseUrl)
         );
       } else {
         return NextResponse.redirect(
-          new URL(`/provider/calendar/connect?error=${encodeURIComponent('Failed to connect calendar')}`, request.url)
+          new URL(`/provider/calendar/connect?error=${encodeURIComponent('Failed to connect calendar')}`, baseUrl)
         );
       }
     }
 
   } catch (error) {
     console.error('❌ Callback handler error:', error);
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
     return NextResponse.redirect(
-      new URL(`/provider/dashboard?error=${encodeURIComponent('OAuth callback failed')}`, request.url)
+      new URL(`/provider/dashboard?error=${encodeURIComponent('OAuth callback failed')}`, baseUrl)
     );
   }
 }
