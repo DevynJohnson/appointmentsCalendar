@@ -26,7 +26,7 @@ export class CalendarSyncService {
   /**
    * Sync all calendars for a provider with optional date range
    */
-  static async syncAllCalendars(providerId: string, dateRange?: DateRange) {
+  static async syncAllCalendars(providerId: string) {
     const connections = await prisma.calendarConnection.findMany({
       where: {
         providerId,
