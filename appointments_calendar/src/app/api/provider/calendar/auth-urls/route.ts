@@ -29,8 +29,7 @@ export async function GET(request: NextRequest) {
     
     // Check for required environment variables before generating URLs
     const requiredEnvVars = [
-      'OUTLOOK_CLIENT_ID', 'OUTLOOK_REDIRECT_URI',
-      'TEAMS_CLIENT_ID', 'TEAMS_REDIRECT_URI', 
+      'MICROSOFT_CLIENT_ID', 'MICROSOFT_REDIRECT_URI',
       'GOOGLE_CLIENT_ID', 'GOOGLE_REDIRECT_URI'
     ];
     

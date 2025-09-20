@@ -23,11 +23,11 @@ export class CalendarConnectionService {
       const tokenResponse = await axios.post(
         'https://login.microsoftonline.com/common/oauth2/v2.0/token',
         new URLSearchParams({
-          client_id: process.env.OUTLOOK_CLIENT_ID!,
-          client_secret: process.env.OUTLOOK_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID!,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
           code: authCode,
           grant_type: 'authorization_code',
-          redirect_uri: process.env.OUTLOOK_REDIRECT_URI!,
+          redirect_uri: process.env.MICROSOFT_REDIRECT_URI!,
           scope: 'https://graph.microsoft.com/calendars.read',
         }),
         {
@@ -130,11 +130,11 @@ export class CalendarConnectionService {
       const tokenResponse = await axios.post(
         'https://login.microsoftonline.com/common/oauth2/v2.0/token',
         new URLSearchParams({
-          client_id: process.env.TEAMS_CLIENT_ID!,
-          client_secret: process.env.TEAMS_CLIENT_SECRET!,
+          client_id: process.env.MICROSOFT_CLIENT_ID!,
+          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
           code: authCode,
           grant_type: 'authorization_code',
-          redirect_uri: process.env.TEAMS_REDIRECT_URI!,
+          redirect_uri: process.env.MICROSOFT_REDIRECT_URI!,
           scope: 'https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read',
         }),
         {
@@ -236,8 +236,8 @@ export class CalendarConnectionService {
         tokenResponse = await axios.post(
           'https://login.microsoftonline.com/common/oauth2/v2.0/token',
           new URLSearchParams({
-            client_id: process.env.OUTLOOK_CLIENT_ID!,
-            client_secret: process.env.OUTLOOK_CLIENT_SECRET!,
+            client_id: process.env.MICROSOFT_CLIENT_ID!,
+            client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
             refresh_token: connection.refreshToken,
             grant_type: 'refresh_token',
           }),
@@ -249,8 +249,8 @@ export class CalendarConnectionService {
         tokenResponse = await axios.post(
           'https://login.microsoftonline.com/common/oauth2/v2.0/token',
           new URLSearchParams({
-            client_id: process.env.TEAMS_CLIENT_ID!,
-            client_secret: process.env.TEAMS_CLIENT_SECRET!,
+            client_id: process.env.MICROSOFT_CLIENT_ID!,
+            client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
             refresh_token: connection.refreshToken,
             grant_type: 'refresh_token',
           }),
@@ -417,17 +417,17 @@ export class CalendarConnectionService {
     const googleStateParam = encodeURIComponent(JSON.stringify({ providerId }));
     
     const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
       `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read')}&` +
       `state=${outlookStateParam}&` +
       `response_mode=query`;
 
     const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.TEAMS_CLIENT_ID}&` +
+      `client_id=${process.env.MICROSOFT_CLIENT_ID}&` +
       `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
+      `redirect_uri=${encodeURIComponent(process.env.MICROSOFT_REDIRECT_URI!)}&` +
       `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read')}&` +
       `state=${teamsStateParam}&` +
       `response_mode=query`;

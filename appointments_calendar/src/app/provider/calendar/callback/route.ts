@@ -68,8 +68,8 @@ export async function GET(request: NextRequest) {
           tokenResponse = await axios.post(
             'https://login.microsoftonline.com/common/oauth2/v2.0/token',
             new URLSearchParams({
-              client_id: process.env[`${platform}_CLIENT_ID`]!,
-              client_secret: process.env[`${platform}_CLIENT_SECRET`]!,
+              client_id: process.env.MICROSOFT_CLIENT_ID!,
+              client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
               code,
               grant_type: 'authorization_code',
               redirect_uri: `${baseUrl}/provider/calendar/callback`,
