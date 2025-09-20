@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
     // Exchange code for tokens
     console.log(`🔄 Exchanging code for ${platform} tokens...`);
     let tokenResponse;
-    const baseUrl = new URL(request.url).origin;
 
     try {
       switch (platform) {
@@ -66,7 +65,7 @@ export async function GET(request: NextRequest) {
             client_secret: process.env.GOOGLE_CLIENT_SECRET!,
             code,
             grant_type: 'authorization_code',
-            redirect_uri: `${baseUrl}/provider/calendar/callback`,
+            redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
           });
           break;
 
@@ -74,6 +73,10 @@ export async function GET(request: NextRequest) {
         case 'outlook':
         case 'TEAMS':
         case 'teams':
+          const redirectUri = process.env.MICROSOFT_REDIRECT_URI!;
+          console.log('🔗 Token exchange redirect_uri:', redirectUri);
+          console.log('🆔 Using client_id:', process.env.MICROSOFT_CLIENT_ID);
+          
           tokenResponse = await axios.post(
             'https://login.microsoftonline.com/common/oauth2/v2.0/token',
             new URLSearchParams({
@@ -81,7 +84,7 @@ export async function GET(request: NextRequest) {
               client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
               code,
               grant_type: 'authorization_code',
-              redirect_uri: `${baseUrl}/provider/calendar/callback`,
+              redirect_uri: redirectUri,
             }),
             {
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
