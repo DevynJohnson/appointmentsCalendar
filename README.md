@@ -213,9 +213,9 @@ Appointments Calendar implements comprehensive security measures to protect user
 - `GET /test-calendars` — Test calendar integrations
 - `PUT /event-booking-settings` — Update event booking configurations
 
-### Webhook & Automation (`/api/webhooks`, `/api/cron`)
+### Webhook & Automation (`/api/webhooks`, `/api/test`)
 - `POST /webhooks/calendar` — Handle calendar platform notifications
-- `POST /cron/sync-calendars` — Automated calendar synchronization
+- `GET /test/cron-sync` — Test on-demand calendar synchronization
 
 ## Testing
 
