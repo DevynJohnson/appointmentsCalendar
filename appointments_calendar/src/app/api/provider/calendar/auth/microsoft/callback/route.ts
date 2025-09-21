@@ -4,6 +4,9 @@ import { CalendarConnectionService } from '@/lib/calendar-connections';
 import { CalendarPlatform } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
+  // Use environment-specific base URL
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin;
+  
   try {
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
@@ -13,14 +16,14 @@ export async function GET(request: NextRequest) {
     // Handle OAuth error
     if (error) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=oauth_failed', request.url)
+        new URL('/provider/calendar/connect?error=oauth_failed', baseUrl)
       );
     }
 
     // Validate required parameters
     if (!code) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=missing_code', request.url)
+        new URL('/provider/calendar/connect?error=missing_code', baseUrl)
       );
     }
 
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
       }
     } catch {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=invalid_state', request.url)
+        new URL('/provider/calendar/connect?error=invalid_state', baseUrl)
       );
     }
 
@@ -54,11 +57,11 @@ export async function GET(request: NextRequest) {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          client_id: process.env.MICROSOFT_CLIENT_ID!,
-          client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+          client_id: platform === 'teams' ? process.env.TEAMS_CLIENT_ID! : process.env.OUTLOOK_CLIENT_ID!,
+          client_secret: platform === 'teams' ? process.env.TEAMS_CLIENT_SECRET! : process.env.OUTLOOK_CLIENT_SECRET!,
           code,
           grant_type: 'authorization_code',
-          redirect_uri: process.env.MICROSOFT_REDIRECT_URI!,
+          redirect_uri: platform === 'teams' ? process.env.TEAMS_REDIRECT_URI! : process.env.OUTLOOK_REDIRECT_URI!,
           scope: 'https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access',
         }),
       }
@@ -66,7 +69,7 @@ export async function GET(request: NextRequest) {
     
     if (!tokenResponse.ok) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=token_exchange_failed', request.url)
+        new URL('/provider/calendar/connect?error=token_exchange_failed', baseUrl)
       );
     }
 
@@ -84,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     if (!profileResponse.ok) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=profile_access_failed', request.url)
+        new URL('/provider/calendar/connect?error=profile_access_failed', baseUrl)
       );
     }
 
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     if (!userEmail) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=no_email_found', request.url)
+        new URL('/provider/calendar/connect?error=no_email_found', baseUrl)
       );
     }
 
@@ -125,7 +128,7 @@ export async function GET(request: NextRequest) {
 
       // Redirect back to the management page
       return NextResponse.redirect(
-        new URL(`/provider/calendar/manage/${connectionId}?success=reauth_success`, request.url)
+        new URL(`/provider/calendar/manage/${connectionId}?success=reauth_success`, baseUrl)
       );
     } else {
       // Create new connection
@@ -144,13 +147,13 @@ export async function GET(request: NextRequest) {
       // Redirect back to calendar connect page with success
       const successParam = platform === 'teams' ? 'teams_connected' : 'microsoft_connected';
       return NextResponse.redirect(
-        new URL(`/provider/calendar/connect?success=${successParam}`, request.url)
+        new URL(`/provider/calendar/connect?success=${successParam}`, baseUrl)
       );
     }
 
   } catch {
     return NextResponse.redirect(
-      new URL('/provider/calendar/connect?error=callback_failed', request.url)
+      new URL('/provider/calendar/connect?error=callback_failed', baseUrl)
     );
   }
 }
