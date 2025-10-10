@@ -1,7 +1,8 @@
 // Get provider calendar connections
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
-import { CalendarConnectionService } from '@/lib/calendar-connections';
+import { withProviderContext } from '@/lib/db-rls';
+import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +17,12 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    const connections = await CalendarConnectionService.getProviderConnections(provider.id);
+    // Use RLS context - will automatically filter to only this provider's connections
+    const connections = await withProviderContext(provider.id, async () => {
+      return await prisma.calendarConnection.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+    });
 
     return NextResponse.json(connections);
   } catch (error) {

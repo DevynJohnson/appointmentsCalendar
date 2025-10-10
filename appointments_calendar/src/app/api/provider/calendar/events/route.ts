@@ -1,6 +1,7 @@
 // Get provider calendar events
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
+import { withProviderContext } from '@/lib/db-rls';
 import { prisma } from '@/lib/db';
 
 
@@ -17,20 +18,22 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    const events = await prisma.calendarEvent.findMany({
-      where: {
-        providerId: provider.id,
-        startTime: {
-          gte: new Date(),
+    // Use RLS context - automatically filters to only this provider's events
+    const events = await withProviderContext(provider.id, async () => {
+      return await prisma.calendarEvent.findMany({
+        where: {
+          startTime: {
+            gte: new Date(),
+          },
         },
-      },
-      include: {
-        bookings: true,
-      },
-      orderBy: {
-        startTime: 'asc',
-      },
-      take: 50, // Limit to next 50 events
+        include: {
+          bookings: true,
+        },
+        orderBy: {
+          startTime: 'asc',
+        },
+        take: 50, // Limit to next 50 events
+      });
     });
 
     // Transform events to include booking counts

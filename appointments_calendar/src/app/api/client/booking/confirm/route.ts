@@ -1,8 +1,8 @@
 // API endpoint for confirming bookings via magic link
 import { NextRequest, NextResponse } from 'next/server';
-import { ResendEmailService } from '@/lib/resend-email-service';
+import { MailerooEmailService } from '@/lib/resend-email-service';
 import { prisma } from '@/lib/db';
-const emailService = new ResendEmailService();
+const emailService = new MailerooEmailService();
 
 interface CalendarConnection {
   id: string;

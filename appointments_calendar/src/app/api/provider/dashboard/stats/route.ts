@@ -1,6 +1,7 @@
 // Provider dashboard statistics
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
+import { withProviderContext } from '@/lib/db-rls';
 import { prisma } from '@/lib/db';
 
 
@@ -17,53 +18,45 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    // Get calendar connections stats
-    const [totalConnections, activeConnections] = await Promise.all([
-      prisma.calendarConnection.count({
-        where: { providerId: provider.id },
-      }),
-      prisma.calendarConnection.count({
-        where: { 
-          providerId: provider.id,
-          isActive: true,
-        },
-      }),
-    ]);
+    // Use RLS context for all database operations
+    const stats = await withProviderContext(provider.id, async () => {
+      // Get calendar connections stats - RLS will automatically filter by provider
+      const [totalConnections, activeConnections] = await Promise.all([
+        prisma.calendarConnection.count(),
+        prisma.calendarConnection.count({
+          where: { isActive: true },
+        }),
+      ]);
 
-    // Get upcoming events count (next 30 days)
-    const thirtyDaysFromNow = new Date();
-    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      // Get upcoming events count (next 30 days)
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-    const upcomingEvents = await prisma.calendarEvent.count({
-      where: {
-        providerId: provider.id,
-        startTime: {
-          gte: new Date(),
-          lte: thirtyDaysFromNow,
+      const upcomingEvents = await prisma.calendarEvent.count({
+        where: {
+          startTime: {
+            gte: new Date(),
+            lte: thirtyDaysFromNow,
+          },
         },
-      },
+      });
+
+      // Get booking stats - RLS will automatically filter by provider
+      const [totalBookings, pendingBookings] = await Promise.all([
+        prisma.booking.count(),
+        prisma.booking.count({
+          where: { status: 'PENDING' },
+        }),
+      ]);
+
+      return {
+        totalConnections,
+        activeConnections,
+        upcomingEvents,
+        totalBookings,
+        pendingBookings,
+      };
     });
-
-    // Get booking stats
-    const [totalBookings, pendingBookings] = await Promise.all([
-      prisma.booking.count({
-        where: { providerId: provider.id },
-      }),
-      prisma.booking.count({
-        where: { 
-          providerId: provider.id,
-          status: 'PENDING',
-        },
-      }),
-    ]);
-
-    const stats = {
-      totalConnections,
-      activeConnections,
-      upcomingEvents,
-      totalBookings,
-      pendingBookings,
-    };
 
     return NextResponse.json(stats);
   } catch (error) {

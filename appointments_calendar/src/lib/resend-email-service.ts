@@ -1,5 +1,4 @@
-// Email service using Resend for sending booking confirmations and notifications
-import { Resend } from 'resend';
+// Email service using Maileroo for sending booking confirmations and notifications
 import jwt from 'jsonwebtoken';
 
 interface BookingDetails {
@@ -22,14 +21,58 @@ interface MagicLinkData {
   exp: number;
 }
 
-export class ResendEmailService {
-  private resend: Resend;
+export class MailerooEmailService {
+  private apiKey: string;
+  private apiUrl: string = 'https://api.maileroo.com/v1/send';
 
   constructor() {
-    if (!process.env.RESEND_API_KEY) {
-      throw new Error('RESEND_API_KEY environment variable is required');
+    if (!process.env.MAILEROO_API_KEY) {
+      throw new Error('MAILEROO_API_KEY environment variable is required');
     }
-    this.resend = new Resend(process.env.RESEND_API_KEY);
+    this.apiKey = process.env.MAILEROO_API_KEY;
+  }
+
+  /**
+   * Send email via Maileroo API
+   */
+  private async sendEmail(emailData: {
+    from: string;
+    to: string[];
+    subject: string;
+    html: string;
+  }) {
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          from: {
+            email: emailData.from,
+            name: 'Appointments Calendar'
+          },
+          to: emailData.to.map(email => ({ email })),
+          subject: emailData.subject,
+          html: emailData.html,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Maileroo API error response:', errorText);
+        throw new Error(`Maileroo API error: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json();
+      return { data: result };
+      return { data: result };
+    } catch (error) {
+      console.error('Maileroo send error:', error);
+      throw error;
+    }
   }
 
   /**
@@ -83,8 +126,8 @@ export class ResendEmailService {
         hour12: true,
       });
 
-      const result = await this.resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'appointments@yourdomain.com',
+      const result = await this.sendEmail({
+        from: process.env.MAILEROO_FROM_EMAIL || 'appointments@yourdomain.com',
         to: [booking.customerEmail],
         subject: `Confirm Your Appointment with ${booking.providerName}`,
         html: `
@@ -189,8 +232,8 @@ export class ResendEmailService {
         hour12: true,
       });
 
-      const result = await this.resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'appointments@yourdomain.com',
+      const result = await this.sendEmail({
+        from: process.env.MAILEROO_FROM_EMAIL || 'appointments@yourdomain.com',
         to: [booking.providerEmail],
         subject: `🔔 New Appointment Request from ${booking.customerName}`,
         html: `
@@ -295,8 +338,8 @@ export class ResendEmailService {
       });
 
       // Send customer confirmation
-      const customerResult = await this.resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'appointments@yourdomain.com',
+      const customerResult = await this.sendEmail({
+        from: process.env.MAILEROO_FROM_EMAIL || 'appointments@yourdomain.com',
         to: [booking.customerEmail],
         subject: `✅ Appointment Confirmed with ${booking.providerName}`,
         html: `
@@ -358,8 +401,8 @@ export class ResendEmailService {
       });
 
       // Send provider confirmation
-      const providerResult = await this.resend.emails.send({
-        from: process.env.RESEND_FROM_EMAIL || 'appointments@yourdomain.com',
+      const providerResult = await this.sendEmail({
+        from: process.env.MAILEROO_FROM_EMAIL || 'appointments@yourdomain.com',
         to: [booking.providerEmail],
         subject: `✅ Appointment Confirmed - ${booking.customerName}`,
         html: `
@@ -428,6 +471,70 @@ export class ResendEmailService {
       return true;
     } catch (error) {
       console.error('Failed to send booking confirmations:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send password reset email to provider
+   */
+  async sendPasswordResetEmail(email: string, name: string, resetUrl: string): Promise<boolean> {
+    try {
+      const result = await this.sendEmail({
+        from: process.env.MAILEROO_FROM_EMAIL || 'appointments@yourdomain.com',
+        to: [email],
+        subject: '🔐 Reset Your Provider Password',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="background: #007bff; color: white; width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 36px;">
+                
+              </div>
+              <h1 style="color: #333; margin-bottom: 10px;">Reset Your Password</h1>
+              <p style="color: #666; font-size: 16px;">We received a request to reset your password</p>
+            </div>
+            
+            <div style="background: #f8f9fa; padding: 25px; border-radius: 10px; margin: 25px 0; border-left: 4px solid #007bff;">
+              <h2 style="margin-top: 0; color: #333; font-size: 18px;">Hello ${name}!</h2>
+              <p style="color: #666; margin-bottom: 20px;">
+                Click the button below to reset your password. This link will expire in <strong>1 hour</strong>.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                Reset Password
+              </a>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 25px 0; border-left: 4px solid #ffc107;">
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                <strong>Security Notice:</strong> If you did not request a password reset, please ignore this email. Your password will remain unchanged.
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+              <p style="color: #666; font-size: 14px;">
+                If the button doesn&apos;t work, copy and paste this link into your browser:
+              </p>
+              <p style="color: #007bff; font-size: 12px; word-break: break-all;">
+                ${resetUrl}
+              </p>
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                This email was sent regarding your provider account password reset request.
+              </p>
+            </div>
+          </div>
+        `,
+      });
+
+      console.log('Password reset email sent:', result.data?.id);
+      return true;
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
       return false;
     }
   }
