@@ -1,5 +1,4 @@
 // Email service for sending booking confirmations and notifications
-import nodemailer from 'nodemailer';
 import jwt from 'jsonwebtoken';
 
 interface EmailConfig {

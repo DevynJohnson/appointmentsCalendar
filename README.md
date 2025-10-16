@@ -132,8 +132,6 @@ The application is optimized for deployment on platforms like Vercel, Netlify, o
 - **Prisma 6.14.0** - Modern database toolkit and ORM
 - **PostgreSQL** - Robust relational database via pg 8.16.3
 - **bcryptjs 3.0.2** - Password hashing for secure authentication
-- **Resend 6.0.3** - Modern email API for transactional emails
-- **Nodemailer 6.10.1** - Alternative email service with SMTP support
 
 ### Calendar Integration
 - **@azure/msal-node 3.7.1** - Microsoft Authentication Library for Outlook and Teams integration
@@ -335,8 +333,6 @@ Devyn Johnson - Full-Stack Engineer & Project Architect
 - [Prisma Studio](https://www.prisma.io/studio) - Visual database editor
 
 #### Email Services
-- [Resend](https://resend.com) - Modern email API for transactional emails
-- [Nodemailer](https://nodemailer.com) - Alternative email sending with SMTP support
 
 #### Utilities
 - [Axios](https://axios-http.com) - Promise-based HTTP client
