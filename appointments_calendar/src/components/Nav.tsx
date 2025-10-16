@@ -135,7 +135,7 @@ export default function Nav({ type = 'public' }: NavProps) {
               <Link href={type === 'provider' ? '/provider/dashboard' : '/'} className="flex items-center">
                 <span className="text-2xl font-bold text-blue-600">📅</span>
                 <span className="ml-2 text-xl font-semibold text-gray-900">
-                  {type === 'provider' ? 'Provider Portal' : 'Appointment Calendar'}
+                  {type === 'provider' ? 'Provider Portal' : 'Zone Meet'}
                 </span>
               </Link>
             </div>

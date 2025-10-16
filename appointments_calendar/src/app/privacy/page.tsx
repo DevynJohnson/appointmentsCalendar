@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
               <p className="text-gray-700 mb-4">
-                Welcome to Appointments Calendar (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our appointment calendar management service (&ldquo;Service&rdquo;).
+                Welcome to Appointments Calendar (&ldquo;we,&rdquo; &ldquo;our,&rdquo; or &ldquo;us&rdquo;). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Zone Meet management service (&ldquo;Service&rdquo;).
               </p>
               <p className="text-gray-700">
                 By using our Service, you consent to the data practices described in this Privacy Policy.
@@ -60,7 +60,7 @@ export default function PrivacyPolicy() {
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. How We Use Your Information</h2>
               <p className="text-gray-700 mb-4">We use the collected information for:</p>
               <ul className="list-disc list-inside text-gray-700 space-y-2">
-                <li>Providing and maintaining our appointment calendar service</li>
+                <li>Providing and maintaining our Zone Meet service</li>
                 <li>Synchronizing and managing your calendar data across platforms</li>
                 <li>Authenticating your identity and securing your account</li>
                 <li>Sending appointment notifications and reminders</li>

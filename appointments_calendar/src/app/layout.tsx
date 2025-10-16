@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Appointment Calendar - Book appointments based on location",
+  title: "Zone Meet",
   description: "Professional appointment booking system with location-based scheduling",
 };
 

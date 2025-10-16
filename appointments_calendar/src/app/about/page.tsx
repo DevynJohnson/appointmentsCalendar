@@ -6,11 +6,11 @@ export default function About() {
       <Nav type="public" />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white rounded-lg shadow-sm p-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-6">About Appointment Calendar</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">About Zone Meet</h1>
           
           <div className="prose prose-lg max-w-none">
             <p className="text-gray-600 mb-6">
-              Appointment Calendar is a professional appointment booking system designed for businesses 
+              Zone Meet is a professional appointment booking system designed for businesses 
               operating across multiple locations. Our platform allows service providers to 
               seamlessly sync their calendars, set their location for specific time frames and enable customers to book appointments based 
               on both location and availability.
@@ -120,7 +120,7 @@ export default function About() {
             <div className="bg-gray-50 p-6 rounded-lg">
               <h3 className="font-semibold text-lg mb-2">Ready to Get Started?</h3>
               <p className="text-gray-600 mb-4">
-                Join the service providers who trust Appointment Calendar for their booking needs.
+                Join the service providers who trust Zone Meet for their booking needs.
               </p>
               <div className="space-x-4">
                 <a

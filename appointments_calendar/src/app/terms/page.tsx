@@ -67,7 +67,7 @@ export default function TermsOfService() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">Permitted Uses</h3>
               <p className="text-gray-700 mb-4">You may use the Service to:</p>
               <ul className="list-disc list-inside text-gray-700 mb-4 space-y-1">
-                <li>Manage your appointment calendar</li>
+                <li>Manage your appointment calendars</li>
                 <li>Synchronize calendar data across authorized platforms</li>
                 <li>Schedule and track appointments with clients</li>
                 <li>Export your calendar data for backup purposes</li>
