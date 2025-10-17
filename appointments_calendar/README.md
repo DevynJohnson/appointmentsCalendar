@@ -1,26 +1,16 @@
-# Appointments Calendar
+# Zone Meet - Development Setup
 
-A comprehensive appointment booking system built with Next.js, featuring multi-calendar support for Google Calendar and Outlook, magic link authentication, and automated email notifications.
+This directory contains the main Zone Meet application. For project overview and features, see the [main README](../README.md).
 
-## Features
+## Quick Start
 
-- **Multi-Calendar Support**: Sync events from and allow bookings to multiple Google Calendar and Outlook calendars
-- **Magic Link Authentication**: Secure booking confirmation via email magic links
-- **Email Notifications**: Automated booking confirmations and provider notifications using Resend
-- **Calendar Integration**: Automatic event creation in provider's default calendar
-- **Provider Dashboard**: Manage calendar connections, availability, and bookings
-- **Client Booking Flow**: Simple booking interface with real-time availability
+# Zone Meet - Development Documentation
 
-## Tech Stack
+**Internal Development Guide - Confidential**
 
-- **Framework**: Next.js 15.5.3 with TypeScript
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT-based magic links
-- **Email Service**: Resend API
-- **Calendar APIs**: Google Calendar API, Microsoft Graph API (Outlook)
-- **Styling**: Tailwind CSS
+This directory contains the main Zone Meet application. For business overview and features, see the [main README](../README.md).
 
-## Setup Instructions
+## Team Development Setup
 
 ### 1. Install Dependencies
 
@@ -32,13 +22,13 @@ npm install
 
 Copy the `.env.local` file and configure the following variables:
 
-#### Required - Resend Email Service
+#### Required - Maileroo Email Service
 ```bash
-# Get your API key from https://resend.com/api-keys
-RESEND_API_KEY=your_resend_api_key_here
+# Get your API key from https://maileroo.com/dashboard/api-keys
+MAILEROO_API_KEY=your_maileroo_api_key_here
 
-# Email address to send from (must be verified domain in Resend)
-RESEND_FROM_EMAIL=appointments@yourdomain.com
+# Email address to send from (must be verified domain in Maileroo)
+MAILEROO_FROM_EMAIL=noreply@yourdomain.com
 ```
 
 #### Required - Security
@@ -56,12 +46,12 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 DATABASE_URL=your_database_connection_string
 ```
 
-### 3. Resend Setup
+### 3. Maileroo Setup
 
-1. Go to [Resend.com](https://resend.com) and create an account
-2. Navigate to API Keys and create a new API key
-3. Add your domain and verify it (for production)
-4. For development, you can use `onboarding@resend.dev` as the from email
+1. Go to [Maileroo.com](https://maileroo.com) and create an account
+2. Verify your sending domain in the Maileroo dashboard
+3. Get your API key from the API Keys section
+4. For development, you can use any verified email address as the from email
 
 ### 4. Database Setup
 

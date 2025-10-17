@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { MailerooEmailService } from '@/lib/resend-email-service';
-import jwt from 'jsonwebtoken';
+import { emailService } from '@/lib/maileroo-email-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,19 +21,8 @@ export async function POST(request: NextRequest) {
     // Always return success to prevent email enumeration attacks
     // But only send email if provider exists
     if (provider) {
-      // Generate reset token (expires in 1 hour)
-      const resetToken = jwt.sign(
-        { providerId: provider.id, email: provider.email, type: 'password_reset' },
-        process.env.JWT_SECRET!,
-        { expiresIn: '1h' }
-      );
-
-      // Send reset email
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
-      const resetUrl = `${baseUrl}/provider/reset-password?token=${resetToken}`;
-
-      const emailService = new MailerooEmailService();
-      await emailService.sendPasswordResetEmail(provider.email, provider.name, resetUrl);
+      // Send reset email using the new email service
+      await emailService.sendPasswordReset(provider.id, provider.email, provider.name);
     }
 
     return NextResponse.json({

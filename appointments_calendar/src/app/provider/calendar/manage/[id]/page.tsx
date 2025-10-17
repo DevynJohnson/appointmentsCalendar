@@ -17,9 +17,7 @@ interface CalendarConnection {
   isActive: boolean;
   lastSyncAt: string | null;
   syncFrequency: number;
-  subscriptionId: string | null;
-  webhookUrl: string | null;
-  subscriptionExpiresAt: string | null;
+
   createdAt: string;
   accessToken?: string;
   isDefaultForBookings?: boolean;

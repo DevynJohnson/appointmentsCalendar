@@ -231,51 +231,7 @@ export default function ProviderDashboard() {
     }
   };
 
-  const handleSetupWebhooks = async () => {
-    try {
-      const token = localStorage.getItem('providerToken');
-      const response = await fetch('/api/provider/calendar/webhooks', {
-        method: 'PUT',
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-      });
 
-      if (!response.ok) {
-        throw new Error('Failed to setup webhooks');
-      }
-
-      const result = await response.json();
-      alert(result.message || 'Webhooks setup successfully');
-      
-      // Reload data to show updated webhook status
-      loadDashboardData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Webhook setup failed');
-    }
-  };
-
-  const handleTestPeriodicSync = async () => {
-    try {
-      const response = await fetch('/api/test/cron-sync', {
-        method: 'GET',
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to test periodic sync');
-      }
-
-      alert(`Periodic sync test completed!\n\nStats:\n- Checked: ${result.stats?.totalChecked || 0} connections\n- Synced: ${result.stats?.synced || 0}\n- Errors: ${result.stats?.errors || 0}`);
-      
-      // Reload data to show updated sync times
-      loadDashboardData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Periodic sync test failed');
-    }
-  };
 
   if (loading) {
     return (
@@ -303,18 +259,6 @@ export default function ProviderDashboard() {
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 Sync All Calendars
-              </button>
-              <button
-                onClick={handleTestPeriodicSync}
-                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors text-sm font-medium"
-              >
-                Test Auto-Sync
-              </button>
-              <button
-                onClick={handleSetupWebhooks}
-                className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
-              >
-                Setup Real-Time Sync
               </button>
             </div>
           </div>

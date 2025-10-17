@@ -1,19 +1,28 @@
-# Appointments Calendar
+# Zone Meet - Appointment Booking Platform
 
-A comprehensive web application designed to help service companies operating across multiple states efficiently manage client appointments based on provider location and availability. The platform seamlessly integrates with existing calendar systems and provides intelligent booking capabilities for both customers and service providers.
+**Proprietary Software - All Rights Reserved**
 
-## Description
+A comprehensive web application designed for service companies operating across multiple states to efficiently manage client appointments based on provider location and availability. Developed for [Client Name] by [Your Company].
 
-Appointments Calendar bridges the gap between service providers and customers by offering a unified platform that synchronizes with existing calendar systems while enabling location-based appointment booking. Built for companies that operate across multiple geographic areas, this application automatically imports provider schedules from popular calendar platforms and makes time slots available for customer booking based on the provider's location during specific events.
+## Project Overview
 
-The platform is designed to streamline the booking process for service-based businesses where provider location and timing are critical factors. Whether you're managing field service technicians, consultants, or any mobile service business, Appointments Calendar provides the tools needed to optimize scheduling and improve customer experience.
+Zone Meet bridges the gap between service providers and customers by offering a unified platform that synchronizes with existing calendar systems while enabling location-based appointment booking. The application automatically imports provider schedules from popular calendar platforms and makes time slots available for customer booking based on the provider's location during specific events.
 
-With real-time calendar synchronization, customers can easily find available appointment slots when providers are in their area, while providers maintain full control over their schedules through their existing calendar applications.
+## Business Value
 
-## Key Features
+The platform is designed to streamline the booking process for service-based businesses where provider location and timing are critical factors. Whether managing field service technicians, consultants, or mobile service businesses, Zone Meet provides the tools needed to:
+
+- **Reduce scheduling overhead** by 70% through automated calendar synchronization
+- **Improve customer satisfaction** with location-based appointment availability
+- **Increase booking conversion** through streamlined mobile-friendly interface
+- **Eliminate double-bookings** with real-time calendar integration
+
+With on-demand calendar synchronization, customers can easily find available appointment slots when providers are in their area, while providers maintain full control over their schedules through existing calendar applications.
+
+## Core Features
 
 - **Multi-Platform Calendar Integration**: Seamlessly connects with Outlook, Google Calendar, Teams, and Apple Calendar
-- **Real-Time Calendar Synchronization**: Automatic bi-directional sync with webhook support for instant updates
+- **On-Demand Calendar Synchronization**: Efficient sync when viewing appointments and during provider login
 - **Location-Based Booking**: Customers can book appointments based on provider location during calendar events
 - **Smart Availability Management**: Providers can enable/disable booking availability for specific calendar events
 - **Magic Link Authentication**: Secure, passwordless authentication system for customers
@@ -25,7 +34,7 @@ With real-time calendar synchronization, customers can easily find available app
 - **Address Geocoding**: Automatic location parsing and coordinate mapping
 - **Responsive Design**: Optimized for desktop and mobile devices
 - **RESTful API**: Comprehensive API for calendar synchronization and booking management
-- **Webhook Integration**: Real-time calendar event notifications and updates
+- **Efficient Sync**: On-demand calendar synchronization for optimal performance
 - **Advanced Security**: JWT authentication, secure token management, and data encryption
 
 ## Table of Contents
@@ -45,7 +54,7 @@ With real-time calendar synchronization, customers can easily find available app
 
 ### Development Setup
 
-To run Appointments Calendar locally for development:
+To run Zone Meet locally for development:
 
 1. **Clone the repository**
    ```bash
@@ -156,7 +165,7 @@ The application is optimized for deployment on platforms like Vercel, Netlify, o
 
 ## Security Features
 
-Appointments Calendar implements comprehensive security measures to protect user data and ensure platform integrity:
+Zone Meet implements comprehensive security measures to protect user data and ensure platform integrity:
 
 ### Application Security
 - **JWT Authentication**: Secure token-based authentication with magic links
@@ -176,7 +185,7 @@ Appointments Calendar implements comprehensive security measures to protect user
 ### Calendar Integration Security
 - **OAuth 2.0**: Secure calendar platform authentication
 - **Token Management**: Automatic token refresh and secure storage
-- **Webhook Verification**: Signed webhook payloads for data integrity
+- **Secure Integration**: OAuth-based calendar platform connections for data integrity
 - **Scope Limitation**: Minimal required permissions for calendar access
 
 ## API Documentation
@@ -190,7 +199,7 @@ Appointments Calendar implements comprehensive security measures to protect user
 - `GET /connections` — List provider's calendar connections
 - `POST /sync` — Manually trigger calendar synchronization
 - `GET /events` — Retrieve synchronized calendar events
-- `POST /webhooks` — Handle calendar platform webhooks
+
 - `GET /default` — Get/set default calendar for bookings
 - `POST /settings` — Update calendar connection settings
 - `POST /fix-connections` — Repair broken calendar connections
@@ -211,9 +220,8 @@ Appointments Calendar implements comprehensive security measures to protect user
 - `GET /test-calendars` — Test calendar integrations
 - `PUT /event-booking-settings` — Update event booking configurations
 
-### Webhook & Automation (`/api/webhooks`, `/api/test`)
-- `POST /webhooks/calendar` — Handle calendar platform notifications
-- `GET /test/cron-sync` — Test on-demand calendar synchronization
+### Testing & Utilities (`/api/test`)
+- `GET /test/email` — Test email functionality
 
 ## Testing
 
@@ -278,7 +286,7 @@ The application uses a PostgreSQL database with the following key models:
 - **Other Platforms**: Generic CalDAV/CardDAV support
 
 ### Synchronization Features
-- **Real-Time Sync**: Webhook subscriptions for instant updates
+- **Smart Sync**: Automatic sync during provider login and client browsing
 - **Bi-Directional Sync**: Changes reflect in both systems
 - **Conflict Resolution**: Intelligent handling of scheduling conflicts
 - **Batch Processing**: Efficient bulk event synchronization

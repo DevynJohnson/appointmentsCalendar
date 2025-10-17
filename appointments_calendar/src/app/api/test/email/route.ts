@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MailerooEmailService } from '@/lib/resend-email-service';
+import { emailService } from '@/lib/maileroo-email-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,24 +12,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const emailService = new MailerooEmailService();
-    
-    // Send a simple test email
-    const success = await emailService.sendPasswordResetEmail(
+    // Send a simple test email using account verification as test
+    await emailService.sendAccountVerification(
+      'test-provider-id',
       testEmail,
-      'Test User',
-      'https://example.com/test-reset-link'
+      'Test User'
     );
 
-    if (success) {
-      return NextResponse.json({
-        message: 'Test email sent successfully!',
-        service: 'Maileroo',
-        recipient: testEmail
-      });
-    } else {
-      throw new Error('Failed to send test email');
-    }
+    return NextResponse.json({
+      message: 'Test email sent successfully!',
+      service: 'Maileroo',
+      recipient: testEmail
+    });
 
   } catch (error) {
     console.error('Test email error:', error);

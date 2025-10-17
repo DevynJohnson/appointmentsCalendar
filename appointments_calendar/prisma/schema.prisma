@@ -87,16 +87,12 @@ model CalendarConnection {
   isActive              Boolean          @default(true)
   lastSyncAt            DateTime?
   syncFrequency         Int              @default(15)
-  subscriptionId        String?
-  webhookUrl            String?
-  subscriptionExpiresAt DateTime?
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
   provider              Provider         @relation(fields: [providerId], references: [id], onDelete: Cascade)
   events                CalendarEvent[]
 
   @@unique([providerId, platform, calendarId])
-  @@index([subscriptionId])
   @@index([providerId, isDefaultForBookings])
   @@map("calendar_connections")
 }

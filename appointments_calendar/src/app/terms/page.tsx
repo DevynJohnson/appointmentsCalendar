@@ -15,7 +15,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Agreement to Terms</h2>
               <p className="text-gray-700 mb-4">
-                By accessing and using Appointments Calendar (&ldquo;Service&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), you accept and agree to be bound by the terms and provision of this agreement.
+                By accessing and using Zone Meet (&ldquo;Service&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;, or &ldquo;our&rdquo;), you accept and agree to be bound by the terms and provision of this agreement.
               </p>
               <p className="text-gray-700">
                 If you do not agree to abide by the above, please do not use this Service.
@@ -25,7 +25,7 @@ export default function TermsOfService() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. Description of Service</h2>
               <p className="text-gray-700 mb-4">
-                Appointments Calendar is a web-based appointment management and calendar synchronization service that allows users to:
+                Zone Meet is a web-based appointment management and calendar synchronization service that allows users to:
               </p>
               <ul className="list-disc list-inside text-gray-700 space-y-2">
                 <li>Connect and synchronize multiple calendar platforms (Google, Outlook, Apple, Teams)</li>

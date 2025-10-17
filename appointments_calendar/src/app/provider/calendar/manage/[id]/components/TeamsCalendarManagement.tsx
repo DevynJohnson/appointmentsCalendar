@@ -12,9 +12,7 @@ interface CalendarConnection {
   isActive: boolean;
   lastSyncAt: string | null;
   syncFrequency: number;
-  subscriptionId: string | null;
-  webhookUrl: string | null;
-  subscriptionExpiresAt: string | null;
+
   createdAt: string;
   accessToken?: string;
   isDefaultForBookings?: boolean;
@@ -392,14 +390,10 @@ export default function TeamsCalendarManagement({ connection, onConnectionUpdate
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-sm font-medium text-gray-500">Webhook Status</dt>
+                    <dt className="text-sm font-medium text-gray-500">Sync Method</dt>
                     <dd className="text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        connection.subscriptionId 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {connection.subscriptionId ? 'Active' : 'Polling'}
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        On-Demand
                       </span>
                     </dd>
                   </div>

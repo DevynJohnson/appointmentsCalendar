@@ -1,8 +1,7 @@
 // API endpoint for confirming bookings via magic link
 import { NextRequest, NextResponse } from 'next/server';
-import { MailerooEmailService } from '@/lib/resend-email-service';
+import { emailService } from '@/lib/maileroo-email-service';
 import { prisma } from '@/lib/db';
-const emailService = new MailerooEmailService();
 
 interface CalendarConnection {
   id: string;
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify the magic link token
-    const linkData = emailService.verifyMagicLink(token);
+    const linkData = emailService.verifyMagicLinkToken(token);
     
     if (!linkData) {
       return NextResponse.json({ error: 'Invalid or expired link' }, { status: 400 });

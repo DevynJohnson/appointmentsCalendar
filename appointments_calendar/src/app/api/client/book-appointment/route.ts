@@ -233,8 +233,7 @@ export async function POST(request: NextRequest) {
 
     // Send magic link email to customer and notification to provider
     try {
-      const { MailerooEmailService } = await import('@/lib/resend-email-service');
-      const emailService = new MailerooEmailService();
+      const { emailService } = await import('@/lib/maileroo-email-service');
 
       const bookingDetails = {
         id: bookingResult.id,
@@ -251,8 +250,8 @@ export async function POST(request: NextRequest) {
 
       // Send magic link to customer and notification to provider
       await Promise.all([
-        emailService.sendCustomerMagicLink(bookingDetails),
-        emailService.sendProviderNotification(bookingDetails),
+        emailService.sendMagicLink(bookingResult.id, bookingResult.customer.email, bookingDetails.customerName, bookingDetails.providerName),
+        emailService.sendBookingNotificationToProvider(bookingDetails),
       ]);
 
     } catch (emailError) {
