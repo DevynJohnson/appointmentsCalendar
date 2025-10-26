@@ -13,15 +13,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Provider ID required" }, { status: 400 });
     }
 
-    // Calculate the booking date range first (we'll use this for optimized sync)
+    // Calculate the booking date range
     const syncStartDate = new Date();
     const maxBookingDate = new Date();
     maxBookingDate.setDate(syncStartDate.getDate() + daysAhead);
-    
-    const syncDateRange = {
-      start: syncStartDate,
-      end: maxBookingDate
-    };
 
     // Trigger calendar sync for this provider before fetching slots
     // This ensures we have the most up-to-date calendar data
@@ -37,9 +32,12 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Use fast booking sync that only fetches events in the booking window
-      const syncResult = await CalendarSyncService.syncForBookingLookup(providerId, syncDateRange);
-      const successfulSyncs = syncResult.success ? syncResult.synced : 0;
+      // Use the optimized booking sync method with date range filtering
+      const syncResult = await CalendarSyncService.syncForBookingLookup(providerId, {
+        start: syncStartDate,
+        end: maxBookingDate
+      });
+      const successfulSyncs = syncResult.synced || 0;
 
       console.log(`✅ Completed ${successfulSyncs}/${connections.length} calendar syncs for provider ${providerId}`);
     } catch (syncError) {
@@ -91,6 +89,17 @@ export async function GET(request: NextRequest) {
         { startDate: 'desc' }
       ]
     });
+
+    console.log(`📍 Found ${providerLocations.length} locations for provider ${providerId}:`, 
+      providerLocations.map(loc => ({
+        id: loc.id,
+        city: loc.city,
+        state: loc.stateProvince,
+        isDefault: loc.isDefault,
+        startDate: loc.startDate,
+        endDate: loc.endDate
+      }))
+    );
 
     // Helper function to find the appropriate location for a specific date
     const getLocationForDate = (appointmentDate: Date): string => {
@@ -228,6 +237,8 @@ export async function GET(request: NextRequest) {
           if (isTimeSlotBusy(slotStart, slotEnd)) continue;
 
           // This is an available slot!
+          const locationDisplay = getLocationForDate(slotStart);
+          
           slots.push({
             id: `slot-${slotStart.getTime()}`,
             eventId: `auto-${slotStart.getTime()}`,
@@ -239,13 +250,15 @@ export async function GET(request: NextRequest) {
               name: provider.name,
             },
             location: {
-              display: getLocationForDate(slotStart),
+              display: locationDisplay,
             },
             availableServices: ['consultation', 'maintenance', 'emergency', 'follow-up'],
             eventTitle: 'Available Appointment',
             slotsRemaining: 1,
             type: 'automatic',
           });
+
+          console.log(`🎯 Generated slot for ${slotStart.toISOString()} with location: ${locationDisplay}`);
         }
       }
     }
@@ -254,6 +267,8 @@ export async function GET(request: NextRequest) {
     const filteredSlots = serviceType 
       ? slots.filter(slot => slot.availableServices.includes(serviceType))
       : slots;
+
+    console.log(`📅 Generated ${slots.length} total slots, ${filteredSlots.length} after filtering for service type: ${serviceType || 'any'}`);
 
     return NextResponse.json({
       success: true,

@@ -24,9 +24,71 @@ interface DateRange {
 
 export class CalendarSyncService {
   /**
+   * Perform lightweight token maintenance during normal operations
+   * This runs automatically whenever calendars are synced - no extra cost!
+   */
+  static async performOpportunisticMaintenance() {
+    try {
+      // Only check for tokens expiring in the next 2 hours (lightweight check)
+      const soonExpiring = new Date(Date.now() + 2 * 60 * 60 * 1000);
+      
+      const expiringConnections = await prisma.calendarConnection.findMany({
+        where: {
+          isActive: true,
+          tokenExpiry: {
+            lt: soonExpiring,
+            gte: new Date() // Not already expired
+          },
+          refreshToken: {
+            not: null
+          }
+        },
+        take: 3, // Limit to 3 at a time to avoid performance impact
+        select: {
+          id: true,
+          platform: true,
+          providerId: true
+        }
+      });
+
+      if (expiringConnections.length > 0) {
+        console.log(`🔄 Opportunistic maintenance: refreshing ${expiringConnections.length} expiring tokens`);
+        
+        // Refresh in parallel (fast)
+        const { refreshConnectionToken } = await import('@/lib/token-refresh');
+        
+        await Promise.allSettled(
+          expiringConnections.map(async (conn) => {
+            try {
+              await refreshConnectionToken(conn.id);
+              console.log(`✅ Refreshed ${conn.platform} token for provider ${conn.providerId}`);
+            } catch (error) {
+              console.warn(`⚠️ Failed to refresh ${conn.platform} token:`, error);
+            }
+          })
+        );
+      }
+    } catch (error) {
+      // Don't let maintenance errors affect the main sync operation
+      console.warn('Opportunistic maintenance failed (continuing with sync):', error);
+    }
+  }
+
+  /**
    * Sync all calendars for a provider with optional date range
    */
-  static async syncAllCalendars(providerId: string) {
+  static async syncAllCalendars(providerId: string, dateRange?: DateRange) {
+    // Run token maintenance before sync (no extra cost!)
+    await this.performOpportunisticMaintenance();
+
+    // Default to next 3 months if no date range specified
+    const defaultRange = dateRange || {
+      start: new Date(),
+      end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days
+    };
+
+    console.log(`📅 Syncing all calendars for provider ${providerId} (${defaultRange.start.toDateString()} to ${defaultRange.end.toDateString()})`);
+
     const connections = await prisma.calendarConnection.findMany({
       where: {
         providerId,
@@ -53,13 +115,13 @@ export class CalendarSyncService {
         };
         
         if (connection.platform === 'OUTLOOK') {
-          result = await this.syncOutlookCalendar(syncConnection);
+          result = await this.syncOutlookCalendar(syncConnection, defaultRange);
         } else if (connection.platform === 'GOOGLE') {
-          result = await this.syncGoogleCalendar(syncConnection);
+          result = await this.syncGoogleCalendar(syncConnection, defaultRange);
         } else if (connection.platform === 'TEAMS') {
-          result = await this.syncTeamsCalendar(syncConnection);
+          result = await this.syncTeamsCalendar(syncConnection, defaultRange);
         } else if (connection.platform === 'APPLE') {
-          result = await this.syncAppleCalendar(syncConnection);
+          result = await this.syncAppleCalendar(syncConnection, defaultRange);
         } else {
           console.warn(`Unsupported platform: ${connection.platform}`);
           return {
@@ -118,12 +180,19 @@ export class CalendarSyncService {
     platform: string;
     selectedCalendars?: unknown;
     calendarSettings?: unknown;
-  }) {
+  }, dateRange?: DateRange) {
     try {
+      // Default to next 3 months if no date range specified
+      const syncRange = dateRange || {
+        start: new Date(),
+        end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      };
+
       console.log('🌐 Starting Outlook calendar sync:', {
         connectionId: connection.id,
         calendarId: connection.calendarId,
-        tokenExpiry: connection.tokenExpiry
+        tokenExpiry: connection.tokenExpiry,
+        dateRange: `${syncRange.start.toDateString()} to ${syncRange.end.toDateString()}`
       });
 
       // Ensure we have a valid access token (refresh if needed)
@@ -169,7 +238,11 @@ export class CalendarSyncService {
         try {
           console.log(`📅 Syncing Outlook calendar: ${calendarId}`);
           
-          // Fetch events from Microsoft Graph API
+          // Create date filter for Microsoft Graph API
+          const startFilter = syncRange.start.toISOString();
+          const endFilter = syncRange.end.toISOString();
+          
+          // Fetch events from Microsoft Graph API with date filtering
           const response = await axios.get(
             `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/events`,
             {
@@ -179,7 +252,8 @@ export class CalendarSyncService {
               },
               params: {
                 $select: 'id,subject,body,start,end,location,isAllDay',
-                $top: 50,
+                $top: 250,
+                $filter: `start/dateTime ge '${startFilter}' and start/dateTime le '${endFilter}'`,
               },
             }
           );
@@ -236,12 +310,19 @@ export class CalendarSyncService {
     platform: string;
     selectedCalendars?: unknown;
     calendarSettings?: unknown;
-  }) {
+  }, dateRange?: DateRange) {
     try {
+      // Default to next 3 months if no date range specified
+      const syncRange = dateRange || {
+        start: new Date(),
+        end: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      };
+
       console.log('🌐 Starting Google calendar sync:', {
         connectionId: connection.id,
         calendarId: connection.calendarId,
-        tokenExpiry: connection.tokenExpiry
+        tokenExpiry: connection.tokenExpiry,
+        dateRange: `${syncRange.start.toDateString()} to ${syncRange.end.toDateString()}`
       });
 
       // Ensure we have a valid access token (refresh if needed)
@@ -276,7 +357,6 @@ export class CalendarSyncService {
       for (const calendarId of calendarsToSync) {
         try {
           console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
-          console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
           const response = await axios.get(
             `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
             {
@@ -284,10 +364,11 @@ export class CalendarSyncService {
                 Authorization: `Bearer ${accessToken}`,
               },
               params: {
-                maxResults: 50,
+                maxResults: 250,
                 singleEvents: true,
                 orderBy: 'startTime',
-                timeMin: new Date().toISOString(), // Only get future events
+                timeMin: syncRange.start.toISOString(),
+                timeMax: syncRange.end.toISOString(), // Key optimization: only get events in specified window
               },
             }
           );
@@ -359,9 +440,9 @@ export class CalendarSyncService {
     refreshToken?: string;
     tokenExpiry: Date | null;
     platform: string;
-  }) {
+  }, dateRange?: DateRange) {
     // Teams uses the same Microsoft Graph API as Outlook
-    return this.syncOutlookCalendar(connection);
+    return this.syncOutlookCalendar(connection, dateRange);
   }
 
   /**
@@ -375,7 +456,7 @@ export class CalendarSyncService {
     refreshToken?: string;
     tokenExpiry: Date | null;
     platform: string;
-  }) {
+  }, dateRange?: DateRange) {
     // Get the full connection details including email
     const fullConnection = await prisma.calendarConnection.findFirst({
       where: { id: connection.id }
@@ -384,6 +465,10 @@ export class CalendarSyncService {
     if (!fullConnection) {
       throw new Error(`Apple connection ${connection.id} not found`);
     }
+    
+    // TODO: Implement date range filtering for Apple calendar sync
+    // For now, using the existing Apple sync service without date filtering
+    console.log(`📅 Apple calendar sync requested for ${dateRange?.start.toDateString()} to ${dateRange?.end.toDateString()} (date filtering not yet implemented)`);
     
     return AppleCalendarService.syncCalendarEvents({
       ...connection,
@@ -663,6 +748,18 @@ export class CalendarSyncService {
       return { success: true, eventsProcessed: totalEventsProcessed };
     } catch (error) {
       console.error('Fast Google calendar sync failed:', error);
+      
+      // Check if this is a token refresh error
+      if (error instanceof Error && error.message.includes('Token refresh failed')) {
+        console.log(`🔄 Google calendar connection requires re-authentication for provider ${connection.providerId}`);
+        return { 
+          success: false, 
+          error: 'Authentication required',
+          requiresReauth: true,
+          message: 'Google calendar needs to be reconnected'
+        };
+      }
+      
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }

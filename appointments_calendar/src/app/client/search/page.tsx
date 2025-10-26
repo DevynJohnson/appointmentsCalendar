@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Nav from '@/components/Nav';
+import { ClientTokenMonitor } from '@/lib/client-token-monitor';
 
 interface Provider {
   id: string;
@@ -14,7 +15,15 @@ interface Provider {
   title: string | null;
   website: string | null;
   defaultBookingDuration: number;
-  stats: {
+  location?: string;
+  locations?: Array<{
+    id: string;
+    city: string;
+    stateProvince: string;
+    country: string;
+    isDefault: boolean;
+  }>;
+  stats?: {
     availableEvents: number;
     recentBookings: number;
   };
@@ -72,6 +81,9 @@ function ProviderSearchContent() {
 
   useEffect(() => {
     searchProviders();
+    
+    // Trigger token maintenance check (free!)
+    ClientTokenMonitor.checkAndMaintain();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
@@ -225,8 +237,7 @@ function ProviderSearchContent() {
                     
                     <div className="flex gap-4 text-xs text-gray-800">
                       <span>⏰ {provider.defaultBookingDuration} min appointments</span>
-                      <span>📅 {provider.stats.availableEvents} available slots</span>
-                      <span>📊 {provider.stats.recentBookings} recent bookings</span>
+                      {provider.location && <span>� {provider.location}</span>}
                     </div>
                   </div>
                   

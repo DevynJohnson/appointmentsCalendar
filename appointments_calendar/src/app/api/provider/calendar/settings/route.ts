@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CalendarConnectionService } from '@/lib/calendar-connections';
-import jwt from 'jsonwebtoken';
+import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get provider ID from token
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { providerId: string };
-      console.log('Provider authenticated:', decoded.providerId);
-    } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const providerId = jwtResult.payload!.providerId;
+    console.log('Provider authenticated:', providerId);
 
     const body = await request.json();
     const { connectionId, settings } = body;

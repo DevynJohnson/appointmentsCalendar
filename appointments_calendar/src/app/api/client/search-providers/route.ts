@@ -1,68 +1,45 @@
-// API endpoint for searching providers
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
-interface SearchConditions {
-  OR?: Array<{
-    name?: { contains: string; mode: 'insensitive' };
-    email?: { contains: string; mode: 'insensitive' };
-    company?: { contains: string; mode: 'insensitive' };
-    bio?: { contains: string; mode: 'insensitive' };
-  }>;
-  city?: { contains: string; mode: 'insensitive' };
-  state?: { contains: string; mode: 'insensitive' };
+// Background maintenance function (runs async, doesn't slow down response)
+async function performBackgroundMaintenance() {
+  // Don't await this - let it run in background
+  setTimeout(async () => {
+    try {
+      const { TokenMaintenanceService } = await import('@/lib/token-maintenance');
+      await TokenMaintenanceService.refreshExpiringTokens();
+    } catch (error) {
+      console.warn('Background maintenance failed:', error);
+    }
+  }, 100); // Start after response is sent
 }
 
 export async function GET(request: NextRequest) {
   try {
+    // Run background token maintenance (no extra cost!)
+    performBackgroundMaintenance();
+
     const { searchParams } = new URL(request.url);
-    const query = searchParams.get('q')?.trim();
-    const city = searchParams.get('city')?.trim();
-    const state = searchParams.get('state')?.trim();
-    const limit = parseInt(searchParams.get('limit') || '20');
+    const query = searchParams.get('q') || '';
+    const city = searchParams.get('city') || '';
+    const state = searchParams.get('state') || '';
+    const limit = parseInt(searchParams.get('limit') || '50');
 
-    // Build search conditions
-    const whereConditions: SearchConditions = {};
+    console.log('Search params:', { query, city, state, limit });
 
-    if (query) {
-      whereConditions.OR = [
-        { name: { contains: query, mode: 'insensitive' } },
-        { email: { contains: query, mode: 'insensitive' } },
-        { company: { contains: query, mode: 'insensitive' } },
-        { bio: { contains: query, mode: 'insensitive' } }
-      ];
-    }
-
-    if (city) {
-      whereConditions.city = { contains: city, mode: 'insensitive' };
-    }
-
-    if (state) {
-      whereConditions.state = { contains: state, mode: 'insensitive' };
-    }
-
+    // Simple query to get all providers with their locations
     const providers = await prisma.provider.findMany({
-      where: whereConditions,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        company: true,
-        bio: true,
-        phone: true,
-        title: true,
-        website: true,
-        defaultBookingDuration: true,
-        _count: {
+      where: {
+        isActive: true
+      },
+      include: {
+        locations: {
           select: {
-            calendarEvents: {
-              where: {
-                allowBookings: true,
-                endTime: {
-                  gte: new Date()
-                }
-              }
-            }
+            id: true,
+            city: true,
+            stateProvince: true,
+            country: true,
+            isDefault: true
           }
         }
       },
@@ -73,40 +50,33 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    // Get recent booking count for each provider
-    const providersWithStats = await Promise.all(
-      providers.map(async (provider) => {
-        const recentBookings = await prisma.booking.count({
-          where: {
-            providerId: provider.id,
-            scheduledAt: {
-              gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
-            }
-          }
-        });
+    // Format response
+    const formattedProviders = providers.map((provider) => {
+      // Format location display
+      const primaryLocation = provider.locations.find(loc => loc.isDefault) || provider.locations[0];
+      const locationDisplay = primaryLocation 
+        ? `${primaryLocation.city}, ${primaryLocation.stateProvince}`
+        : 'Location not specified';
 
-        return {
-          id: provider.id,
-          name: provider.name,
-          email: provider.email,
-          company: provider.company,
-          bio: provider.bio,
-          phone: provider.phone,
-          title: provider.title,
-          website: provider.website,
-          defaultBookingDuration: provider.defaultBookingDuration,
-          stats: {
-            availableEvents: provider._count.calendarEvents,
-            recentBookings
-          }
-        };
-      })
-    );
+      return {
+        id: provider.id,
+        name: provider.name,
+        email: provider.email,
+        company: provider.company,
+        bio: provider.bio,
+        phone: provider.phone,
+        title: provider.title,
+        website: provider.website,
+        defaultBookingDuration: provider.defaultBookingDuration,
+        location: locationDisplay,
+        locations: provider.locations
+      };
+    });
 
     return NextResponse.json({
       success: true,
-      providers: providersWithStats,
-      total: providersWithStats.length
+      providers: formattedProviders,
+      total: formattedProviders.length
     });
 
   } catch (error) {

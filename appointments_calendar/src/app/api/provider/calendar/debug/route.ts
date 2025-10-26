@@ -1,28 +1,28 @@
 // Debug endpoint to check calendar connection status
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 import { prisma } from '@/lib/db';
-
-interface JWTPayload {
-  providerId: string;
-  email: string;
-}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get provider ID from JWT
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const providerId = jwtResult.payload!.providerId;
 
     // Get all calendar connections for this provider with detailed info
     const connections = await prisma.calendarConnection.findMany({
       where: {
-        providerId: decoded.providerId,
+        providerId,
       },
       select: {
         id: true,
@@ -48,14 +48,14 @@ export async function GET(request: NextRequest) {
         const eventCount = await prisma.calendarEvent.count({
           where: {
             connectionId: connection.id,
-            providerId: decoded.providerId,
+            providerId,
           }
         });
 
         const recentEvents = await prisma.calendarEvent.count({
           where: {
             connectionId: connection.id,
-            providerId: decoded.providerId,
+            providerId,
             createdAt: {
               gte: new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
             }
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({
-      providerId: decoded.providerId,
+      providerId,
       connections: connectionsWithEventCounts,
       summary: {
         totalConnections: connections.length,

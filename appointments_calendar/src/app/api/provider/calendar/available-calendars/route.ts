@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CalendarConnectionService } from '@/lib/calendar-connections';
 import { ensureValidToken } from '@/lib/token-refresh';
-import jwt from 'jsonwebtoken';
+import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get provider ID from token
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'No token provided' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    let providerId: string;
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { providerId: string };
-      providerId = decoded.providerId;
-      console.log('Provider authenticated:', providerId);
-    } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
+    const providerId = jwtResult.payload!.providerId;
+    console.log('Provider authenticated:', providerId);
 
     const url = new URL(request.url);
     const platformParam = url.searchParams.get('platform');

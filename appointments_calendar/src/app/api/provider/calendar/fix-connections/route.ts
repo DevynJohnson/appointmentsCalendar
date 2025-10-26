@@ -1,29 +1,29 @@
 // Fix existing calendar connections to have proper syncEvents and allowBookings values
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 import { CalendarConnectionService, AvailableCalendar } from '@/lib/calendar-connections';
 import { prisma } from '@/lib/db';
 
-interface JWTPayload {
-  providerId: string;
-  email: string;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Get provider ID from JWT
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const providerId = jwtResult.payload!.providerId;
 
     // Get all connections for this provider first
     const connections = await prisma.calendarConnection.findMany({
       where: {
-        providerId: decoded.providerId,
+        providerId,
       },
     });
 
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Get the updated connections to return
     const updatedConnections = await prisma.calendarConnection.findMany({
       where: {
-        providerId: decoded.providerId,
+        providerId,
       },
       select: {
         id: true,

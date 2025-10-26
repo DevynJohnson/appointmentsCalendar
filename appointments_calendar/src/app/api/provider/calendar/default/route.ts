@@ -1,12 +1,7 @@
 // Default Calendar Settings API
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/db';
-
-interface JWTPayload {
-  providerId: string;
-  email: string;
-}
+import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 
 interface ConnectionData {
   id: string;
@@ -24,19 +19,24 @@ interface ConnectionData {
 
 export async function GET(request: NextRequest) {
   try {
-    // Get provider ID from JWT
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const providerId = jwtResult.payload!.providerId;
 
-    // Get all calendar connections for this provider
+    // Get all calendar connections for the provider
     const connections = await prisma.calendarConnection.findMany({
       where: {
-        providerId: decoded.providerId,
+        providerId,
         isActive: true,
       },
       select: {
@@ -145,14 +145,19 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    // Get provider ID from JWT
+    // Get provider ID from JWT with proper error handling
     const authHeader = request.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const jwtResult = extractAndVerifyJWT(authHeader);
+    
+    if (!jwtResult.success) {
+      console.warn('JWT verification failed:', jwtResult.error);
+      return NextResponse.json({ 
+        error: jwtResult.error, 
+        code: jwtResult.code 
+      }, { status: 401 });
     }
 
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JWTPayload;
+    const providerId = jwtResult.payload!.providerId;
 
     const { platform, calendarId, connectionId } = await request.json();
 
@@ -164,7 +169,7 @@ export async function PUT(request: NextRequest) {
       targetConnection = await prisma.calendarConnection.findFirst({
         where: {
           id: connectionId,
-          providerId: decoded.providerId,
+          providerId,
           isActive: true,
         }
       });
@@ -172,7 +177,7 @@ export async function PUT(request: NextRequest) {
       // New format - find connection that contains this calendar
       const connections = await prisma.calendarConnection.findMany({
         where: {
-          providerId: decoded.providerId,
+          providerId,
           platform: platform,
           isActive: true,
         }
@@ -204,7 +209,7 @@ export async function PUT(request: NextRequest) {
     // Update default settings - first unset all existing defaults for this provider
     await prisma.calendarConnection.updateMany({
       where: {
-        providerId: decoded.providerId,
+        providerId,
       },
       data: {
         isDefaultForBookings: false,

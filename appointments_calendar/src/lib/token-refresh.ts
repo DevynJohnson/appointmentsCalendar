@@ -225,9 +225,26 @@ export async function ensureValidToken(connection: {
     return refreshResult.accessToken;
   }
   
-  // If refresh failed, throw error with helpful message
+  // If refresh failed, mark connection as inactive and provide helpful guidance
+  console.warn(`❌ Token refresh failed for ${connection.platform} calendar connection ${connection.id}:`, refreshResult.error);
+  
+  // Mark the connection as inactive so it doesn't keep failing
+  try {
+    await prisma.calendarConnection.update({
+      where: { id: connection.id },
+      data: { 
+        isActive: false,
+        // Keep sync enabled so user can easily reactivate
+        syncEvents: true 
+      }
+    });
+    console.log(`🔄 Marked calendar connection ${connection.id} as inactive due to token refresh failure`);
+  } catch (updateError) {
+    console.error('Failed to update calendar connection status:', updateError);
+  }
+
   throw new Error(
     `Token refresh failed for ${connection.platform} calendar connection. ` +
-    `Please re-authenticate your calendar connection. Error: ${refreshResult.error}`
+    `Calendar has been temporarily disabled. Please re-authenticate your calendar connection. Error: ${refreshResult.error}`
   );
 }

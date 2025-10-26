@@ -26,28 +26,35 @@ export default function Nav({ type = 'public' }: NavProps) {
     const checkAuth = async () => {
       try {
         setIsLoading(true);
-        const token = localStorage.getItem(type === 'provider' ? 'providerToken' : 'customerToken');
+        
+        // Only providers have authentication tokens
+        // Clients use magic links and don't need persistent auth
+        if (type !== 'provider') {
+          setUser(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const token = localStorage.getItem('providerToken');
         if (!token) {
           setUser(null);
           setIsLoading(false);
           return;
         }
 
-        // For provider auth, use the existing verification
-        if (type === 'provider') {
-          const response = await fetch('/api/provider/auth/verify', {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+        // Verify provider auth token
+        const response = await fetch('/api/provider/auth/verify', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
-          if (response.ok) {
-            const userData = await response.json();
-            setUser(userData.provider);
-          } else {
-            localStorage.removeItem('providerToken');
-            setUser(null);
-          }
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData.provider);
+        } else {
+          localStorage.removeItem('providerToken');
+          setUser(null);
         }
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -61,8 +68,7 @@ export default function Nav({ type = 'public' }: NavProps) {
 
     // Listen for storage changes (logout in other tabs)
     const handleStorageChange = (e: StorageEvent) => {
-      const tokenKey = type === 'provider' ? 'providerToken' : 'customerToken';
-      if (e.key === tokenKey && !e.newValue) {
+      if (e.key === 'providerToken' && !e.newValue) {
         setUser(null);
       }
     };
@@ -73,12 +79,10 @@ export default function Nav({ type = 'public' }: NavProps) {
 
   const handleLogout = async () => {
     try {
+      // Only providers have logout functionality
+      // Clients use magic links and don't need to logout
       if (type === 'provider') {
         localStorage.removeItem('providerToken');
-        setUser(null);
-        router.push('/provider/login');
-      } else {
-        localStorage.removeItem('customerToken');
         setUser(null);
         router.push('/');
       }
