@@ -5,8 +5,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Nav type="public" />
-      <div className="font-sans grid grid-rows-[1fr_auto] items-center justify-items-center min-h-[calc(100vh-4rem)] p-8 pb-20 gap-16 sm:p-20">
-        <main className="flex flex-col gap-[32px] row-start-1 items-center sm:items-start max-w-4xl">
+      <div className="font-sans flex-1 flex flex-col items-center justify-center p-8 pb-20 gap-16 sm:p-20">
+        <main className="flex flex-col gap-[32px] items-center sm:items-start max-w-4xl">
           <div className="text-center sm:text-left">
             
             <h1 className="text-4xl font-bold text-gray-900 mt-6 mb-4">
@@ -51,33 +51,6 @@ export default function Home() {
             </div>
           </div>
         </main>
-
-        <footer className="row-start-2 flex gap-[24px] flex-wrap items-center justify-center text-sm text-gray-500">
-          <Link
-            className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-            href="/about"
-          >
-            About
-          </Link>
-          <Link
-            className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-            href="/privacy"
-          >
-            Privacy Policy
-          </Link>
-          <Link
-            className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-            href="/terms"
-          >
-            Terms of Service
-          </Link>
-          <Link
-            className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-            href="/provider/login"
-          >
-            Provider Login
-          </Link>
-        </footer>
       </div>
     </div>
   );

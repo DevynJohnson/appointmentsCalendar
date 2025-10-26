@@ -38,8 +38,8 @@ export default function About() {
               <div className="bg-purple-50 p-6 rounded-lg">
                 <h3 className="font-semibold text-lg mb-2 text-purple-900">⚡ Real-Time Updates</h3>
                 <p className="text-purple-800">
-                  Webhook-based notifications ensure availability updates happen instantly 
-                  when provider schedules change.
+                  Smart calendar synchronization ensures availability updates happen automatically 
+                  when provider schedules change, with efficient token management.
                 </p>
               </div>
               
@@ -90,8 +90,8 @@ export default function About() {
               <div className="flex items-start space-x-4">
                 <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-semibold text-sm flex-shrink-0">5</div>
                 <div>
-                  <h4 className="font-semibold">Real-Time Updates</h4>
-                  <p className="text-gray-600">Webhook-based notifications to ensure availability updates happen instantly when provider schedules change on compatiable platforms.</p>
+                  <h4 className="font-semibold">Smart Synchronization</h4>
+                  <p className="text-gray-600">Advanced calendar sync technology automatically maintains up-to-date availability by intelligently refreshing calendar data and managing authentication tokens.</p>
                 </div>
               </div>
             </div>

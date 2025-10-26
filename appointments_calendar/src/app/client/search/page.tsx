@@ -237,7 +237,7 @@ function ProviderSearchContent() {
                     
                     <div className="flex gap-4 text-xs text-gray-800">
                       <span>⏰ {provider.defaultBookingDuration} min appointments</span>
-                      {provider.location && <span>� {provider.location}</span>}
+                      {provider.location && <span>📍 {provider.location}</span>}
                     </div>
                   </div>
                   
