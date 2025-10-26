@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface NavProps {
@@ -111,7 +112,7 @@ export default function Nav({ type = 'public' }: NavProps) {
 
   // Public Navigation Items
   const publicNavItems = [
-    { href: '/', label: 'Home', icon: '🏠' },
+    { href: '/', label: 'Home', icon: '' },
     { href: '/client/booking', label: 'Book Appointment', icon: '📅' },
     { href: '/about', label: 'About', icon: 'ℹ️' },
   ];
@@ -132,32 +133,35 @@ export default function Nav({ type = 'public' }: NavProps) {
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-36">
           {/* Logo/Brand */}
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link href={type === 'provider' ? '/provider/dashboard' : '/'} className="flex items-center">
-                <span className="text-2xl font-bold text-blue-600">📅</span>
-                <span className="ml-2 text-xl font-semibold text-gray-900">
-                  {type === 'provider' ? 'Provider Portal' : 'Zone Meet'}
-                </span>
+                <Image 
+                  src="/ZoneMeet_Logo.png" 
+                  alt="Zone Meet Logo" 
+                  width={250} 
+                  height={250} 
+                  className="hover:opacity-80 transition-opacity"
+                />
               </Link>
             </div>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-4">
+          <div className="hidden md:flex md:items-center md:space-x-6">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-4 py-3 rounded-md text-lg font-medium transition-colors ${
                   isActive(item.href)
                     ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                <span className="mr-2">{item.icon}</span>
+                <span className="mr-3 text-xl">{item.icon}</span>
                 {item.label}
               </Link>
             ))}
@@ -178,24 +182,24 @@ export default function Nav({ type = 'public' }: NavProps) {
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="bg-red-100 text-red-700 px-3 py-1 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                    className="bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
                   >
                     Logout
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-3">
                   {type === 'provider' ? (
                     <>
                       <Link
                         href="/provider/login"
-                        className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                        className="text-gray-700 hover:text-gray-900 px-4 py-3 rounded-md text-lg font-medium"
                       >
                         Login
                       </Link>
                       <Link
                         href="/provider/register"
-                        className="bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                        className="bg-blue-600 text-white px-4 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors"
                       >
                         Register
                       </Link>
@@ -203,7 +207,7 @@ export default function Nav({ type = 'public' }: NavProps) {
                   ) : (
                     <Link
                       href="/provider/login"
-                      className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                      className="text-gray-700 hover:text-gray-900 px-4 py-3 rounded-md text-lg font-medium"
                     >
                       Provider Login
                     </Link>
@@ -237,19 +241,19 @@ export default function Nav({ type = 'public' }: NavProps) {
       {/* Mobile Navigation Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-gray-50 border-t border-gray-200">
+          <div className="px-3 pt-3 pb-4 space-y-2 sm:px-4 bg-gray-50 border-t border-gray-200">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
+                className={`block px-4 py-3 rounded-md text-lg font-medium transition-colors ${
                   isActive(item.href)
                     ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
                 }`}
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <span className="mr-2">{item.icon}</span>
+                <span className="mr-3 text-xl">{item.icon}</span>
                 {item.label}
               </Link>
             ))}
@@ -266,25 +270,25 @@ export default function Nav({ type = 'public' }: NavProps) {
                   )}
                   <button
                     onClick={handleLogout}
-                    className="mt-2 w-full bg-red-100 text-red-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-red-200 transition-colors"
+                    className="mt-3 w-full bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
                   >
                     Logout
                   </button>
                 </div>
               ) : (
-                <div className="px-3 py-2 space-y-2">
+                <div className="px-4 py-3 space-y-3">
                   {type === 'provider' ? (
                     <>
                       <Link
                         href="/provider/login"
-                        className="block w-full text-center bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+                        className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         Login
                       </Link>
                       <Link
                         href="/provider/register"
-                        className="block w-full text-center bg-blue-600 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+                        className="block w-full text-center bg-blue-600 text-white px-4 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         Register
@@ -293,7 +297,7 @@ export default function Nav({ type = 'public' }: NavProps) {
                   ) : (
                     <Link
                       href="/provider/login"
-                      className="block w-full text-center bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+                      className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
                       Provider Login
