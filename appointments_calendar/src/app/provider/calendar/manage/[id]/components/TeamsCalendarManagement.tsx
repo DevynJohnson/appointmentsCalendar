@@ -17,7 +17,6 @@ interface CalendarConnection {
   accessToken?: string;
   isDefaultForBookings?: boolean;
   syncEvents?: boolean;
-  allowBookings?: boolean;
 }
 
 interface CalendarEvent {
@@ -26,7 +25,6 @@ interface CalendarEvent {
   startTime: string;
   endTime: string;
   location: string;
-  allowBookings: boolean;
   maxBookings: number;
   currentBookings: number;
 }
@@ -43,7 +41,6 @@ export default function TeamsCalendarManagement({ connection, onConnectionUpdate
 
   // Form state
   const [isActive, setIsActive] = useState(connection.isActive);
-  const [syncFrequency, setSyncFrequency] = useState(connection.syncFrequency);
 
   const loadData = useCallback(async () => {
     try {
@@ -74,7 +71,6 @@ export default function TeamsCalendarManagement({ connection, onConnectionUpdate
       
       const updateData = {
         isActive,
-        syncFrequency,
       };
 
       const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
@@ -272,29 +268,6 @@ export default function TeamsCalendarManagement({ connection, onConnectionUpdate
                     </label>
                     <p className="mt-1 text-sm text-gray-500">
                       When disabled, this Teams Calendar will not sync events or be available for bookings
-                    </p>
-                  </div>
-
-                  {/* Sync Frequency */}
-                  <div>
-                    <label htmlFor="syncFrequency" className="block text-sm font-medium text-gray-700">
-                      Sync Frequency
-                    </label>
-                    <select
-                      id="syncFrequency"
-                      value={syncFrequency}
-                      onChange={(e) => setSyncFrequency(Number(e.target.value))}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
-                    >
-                      <option value={5}>Every 5 minutes</option>
-                      <option value={15}>Every 15 minutes</option>
-                      <option value={30}>Every 30 minutes</option>
-                      <option value={60}>Every hour</option>
-                      <option value={240}>Every 4 hours</option>
-                      <option value={1440}>Daily</option>
-                    </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                      How often to check for Teams Calendar updates
                     </p>
                   </div>
 

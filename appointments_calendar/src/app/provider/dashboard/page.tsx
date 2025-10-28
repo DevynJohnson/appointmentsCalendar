@@ -11,7 +11,6 @@ interface CalendarConnection {
   isActive: boolean;
   lastSyncAt: string | null;
   syncEvents?: boolean;
-  allowBookings?: boolean;
 }
 
 interface CalendarEvent {
@@ -21,7 +20,6 @@ interface CalendarEvent {
   endTime: string;
   location: string;
   platform: string;
-  allowBookings: boolean;
   maxBookings: number;
   currentBookings: number;
 }
@@ -325,7 +323,7 @@ export default function ProviderDashboard() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Default Calendar for New Bookings</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Choose where new booking events will be written. Only calendars with &quot;Allow Bookings&quot; enabled are shown here. If you do not see a calendar that you have connected, please make sure it has &quot;Allow Bookings&quot; enabled on the Manage Calendar page. If it still does not appear, try using the &quot;Fix Multi-Calendar Support&quot; button below.
+              Choose where new booking events will be written. Only calendars with sync enabled are shown here. If you do not see a calendar that you have connected, please make sure it has &quot;Sync Events&quot; enabled on the Manage Calendar page. If it still does not appear, try using the &quot;Fix Multi-Calendar Support&quot; button below.
             </p>
           </div>
           <div className="px-6 py-4">
@@ -473,11 +471,6 @@ export default function ProviderDashboard() {
                             connection.syncEvents ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
                           }`}>
                             {connection.syncEvents ? '✅ Sync Enabled' : '⏸️ Sync Off'}
-                          </span>
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            connection.allowBookings ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                          }`}>
-                            {connection.allowBookings ? '✅ Can Write Events' : '⛔ Read Only'}
                           </span>
                         </div>
                         {connection.lastSyncAt && (

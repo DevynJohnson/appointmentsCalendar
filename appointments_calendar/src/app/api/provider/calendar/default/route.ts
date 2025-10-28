@@ -14,7 +14,7 @@ interface ConnectionData {
   createdAt: Date;
   selectedCalendars: unknown;
   calendarSettings: unknown;
-  allowBookings: boolean;
+  syncEvents: boolean;
 }
 
 export async function GET(request: NextRequest) {
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         selectedCalendars: true,
         calendarSettings: true,
-        allowBookings: true,
+        syncEvents: true,
       },
       orderBy: [
         { isDefaultForBookings: 'desc' },
@@ -78,17 +78,17 @@ export async function GET(request: NextRequest) {
       // Check if this connection has multi-calendar setup
       if (connection.selectedCalendars && Array.isArray(connection.selectedCalendars)) {
         const calendarSettings = connection.calendarSettings as Record<string, {
-          allowBookings?: boolean;
+          syncEvents?: boolean;
           calendarName?: string;
           canWrite?: boolean;
         }> | null;
         
-        // Add each selected calendar that allows bookings and is writeable
+        // Add each selected calendar that has sync enabled and is writeable
         for (const calendarId of connection.selectedCalendars) {
           // Type cast to string since selectedCalendars should contain calendar ID strings
           const calendarIdStr = calendarId as string;
           const settings = calendarSettings?.[calendarIdStr];
-          if (settings?.allowBookings && settings?.canWrite !== false) {
+          if (settings?.syncEvents && settings?.canWrite !== false) {
             platformGroups[platform].push({
               connectionId: connection.id,
               calendarId: calendarIdStr,
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
         }
       } else {
         // Fallback to primary calendar for connections without multi-calendar setup
-        if (connection.allowBookings) {
+        if (connection.syncEvents) {
           platformGroups[platform].push({
             connectionId: connection.id,
             calendarId: connection.calendarId,

@@ -35,7 +35,7 @@ interface PasswordResetData {
 
 export class ZoneMeetEmailService {
   private apiKey: string;
-  private apiUrl: string = 'https://api.maileroo.com/v1/send';
+  private apiUrl: string = 'https://smtp.maileroo.com/api/v2/emails';
   private fromEmail: string;
 
   constructor() {
@@ -51,6 +51,25 @@ export class ZoneMeetEmailService {
   }
 
   /**
+   * Generate branded email header with Zone Meet logo
+   */
+  private getBrandedHeader(): string {
+    // Use the live Zone Meet domain with Next.js optimized image
+    const logoUrl = 'https://www.zone-meet.com/_next/image?url=%2FZoneMeet_Logo.png&w=256&q=75';
+    
+    return `
+      <div style="text-align: center; margin-bottom: 30px; padding: 20px; background-color: #f8fafc; border-radius: 8px;">
+        <img src="${logoUrl}" 
+             alt="Zone Meet Logo" 
+             style="max-width: 200px; height: auto; margin-bottom: 10px;"
+             onerror="this.style.display='none'" />
+        <h1 style="color: #2563eb; margin: 0; font-size: 28px;">Zone Meet</h1>
+        <p style="color: #666; margin: 5px 0; font-size: 16px;">Professional Appointment Booking</p>
+      </div>
+    `;
+  }
+
+  /**
    * Send email via Maileroo API
    */
   private async sendEmail(emailData: {
@@ -61,6 +80,32 @@ export class ZoneMeetEmailService {
     bcc?: string[];
   }) {
     try {
+      console.log('🔄 Sending email via Maileroo...');
+      console.log('📧 To:', emailData.to);
+      console.log('📝 Subject:', emailData.subject);
+      console.log('🔗 API URL:', this.apiUrl);
+      
+      const payload = {
+        from: {
+          address: this.fromEmail,
+          display_name: "Zone Meet"
+        },
+        to: emailData.to.map(email => ({
+          address: email
+        })),
+        cc: (emailData.cc || []).map(email => ({
+          address: email
+        })),
+        bcc: (emailData.bcc || []).map(email => ({
+          address: email
+        })),
+        subject: emailData.subject,
+        html: emailData.html,
+        tracking: true
+      };
+      
+      console.log('📦 Payload:', JSON.stringify(payload, null, 2));
+      
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -68,23 +113,21 @@ export class ZoneMeetEmailService {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        body: JSON.stringify({
-          from: this.fromEmail,
-          to: emailData.to,
-          cc: emailData.cc || [],
-          bcc: emailData.bcc || [],
-          subject: emailData.subject,
-          html: emailData.html
-        })
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000) // 30 second timeout
       });
+
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (!response.ok) {
         const errorData = await response.text();
+        console.error('❌ Maileroo API error:', response.status, errorData);
         throw new Error(`Maileroo API error: ${response.status} - ${errorData}`);
       }
 
       const result = await response.json();
-      console.log('Email sent successfully:', result);
+      console.log('✅ Email sent successfully:', result);
       return result;
     } catch (error) {
       console.error('Failed to send email:', error);
@@ -118,10 +161,7 @@ export class ZoneMeetEmailService {
           <title>Verify Your Zone Meet Account</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
           <h2 style="color: #1f2937;">Welcome to Zone Meet, ${providerName}!</h2>
           
@@ -185,10 +225,7 @@ export class ZoneMeetEmailService {
           <title>Reset Your Zone Meet Password</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
           <h2 style="color: #1f2937;">Password Reset Request</h2>
           
@@ -255,10 +292,7 @@ export class ZoneMeetEmailService {
           <title>Confirm Your Zone Meet Appointment</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
           <h2 style="color: #1f2937;">Confirm Your Appointment Request</h2>
           
@@ -315,7 +349,11 @@ export class ZoneMeetEmailService {
       hour12: true
     });
 
-    const dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL}/provider/dashboard`;
+    // Generate direct action URLs for provider
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    const confirmUrl = `${baseUrl}/api/provider/bookings/${booking.id}/confirm`;
+    const denyUrl = `${baseUrl}/api/provider/bookings/${booking.id}/cancel`;
+    const rescheduleUrl = `${baseUrl}/provider/bookings?highlight=${booking.id}&action=reschedule`;
 
     const html = `
       <!DOCTYPE html>
@@ -326,10 +364,7 @@ export class ZoneMeetEmailService {
           <title>New Appointment Request - Zone Meet</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
           <h2 style="color: #1f2937;">New Appointment Request</h2>
           
@@ -349,13 +384,45 @@ export class ZoneMeetEmailService {
             ${booking.notes ? `<p><strong>Notes:</strong> ${booking.notes}</p>` : ''}
           </div>
           
-          <p>Please review this request and confirm or decline it in your dashboard.</p>
+          <p>Please review this request and take action below:</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${dashboardUrl}" 
-               style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-              View in Dashboard
+            <table style="margin: 0 auto; border-spacing: 10px;">
+              <tr>
+                <td>
+                  <a href="${confirmUrl}" 
+                     style="background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin: 0 5px;">
+                    ✅ Confirm
+                  </a>
+                </td>
+                <td>
+                  <a href="${denyUrl}" 
+                     style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin: 0 5px;">
+                    ❌ Deny
+                  </a>
+                </td>
+                <td>
+                  <a href="${rescheduleUrl}" 
+                     style="background-color: #f59e0b; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; margin: 0 5px;">
+                    📅 Reschedule
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </div>
+          
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/provider/bookings" 
+               style="background-color: #6b7280; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              📋 View All Bookings
             </a>
+          </div>
+          
+          <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px; color: #475569;">
+              <strong>💡 Quick Actions:</strong> Click "Confirm" to instantly approve and add to your calendar, "Deny" to decline the request, or "Reschedule" to propose a different time. 
+              All actions will automatically notify the client.
+            </p>
           </div>
           
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
@@ -427,10 +494,7 @@ export class ZoneMeetEmailService {
           <title>Appointment Confirmed - Zone Meet</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
           <h2 style="color: #16a34a;">✓ Appointment Confirmed</h2>
           
@@ -480,15 +544,12 @@ export class ZoneMeetEmailService {
         <head>
           <meta charset="utf-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Appointment Confirmed - Zone Meet</title>
+          <title>Appointment Status Update - Zone Meet</title>
         </head>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #2563eb; margin: 0;">Zone Meet</h1>
-            <p style="color: #666; margin: 5px 0;">Professional Appointment Booking</p>
-          </div>
+          ${this.getBrandedHeader()}
           
-          <h2 style="color: #16a34a;">✓ Appointment Confirmed</h2>
+          <h2 style="color: #2563eb;">📋 Appointment Confirmed</h2>
           
           <p>Hello ${booking.providerName},</p>
           
@@ -571,6 +632,174 @@ export class ZoneMeetEmailService {
       console.error('Invalid magic link token:', error);
       return null;
     }
+  }
+
+  /**
+   * 6. Email to customer when booking is cancelled/denied by provider
+   */
+  async sendBookingCancellation(booking: BookingDetails): Promise<void> {
+    const customerName = booking.customerName || 'Valued Customer';
+    
+    const formattedDate = booking.scheduledAt.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const formattedTime = booking.scheduledAt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Appointment Cancelled - Zone Meet</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          ${this.getBrandedHeader()}
+          
+          <h2 style="color: #dc2626;">❌ Appointment Cancelled</h2>
+          
+          <p>Dear ${customerName},</p>
+          
+          <p>We regret to inform you that your appointment with <strong>${booking.providerName}</strong> has been cancelled.</p>
+          
+          <div style="background-color: #fee2e2; border: 1px solid #fecaca; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #991b1b;">Cancelled Appointment Details</h3>
+            <p><strong>Service:</strong> ${booking.serviceType}</p>
+            <p><strong>Date:</strong> ${formattedDate}</p>
+            <p><strong>Time:</strong> ${formattedTime}</p>
+            <p><strong>Duration:</strong> ${booking.duration} minutes</p>
+            ${booking.notes ? `<p><strong>Notes:</strong> ${booking.notes}</p>` : ''}
+          </div>
+          
+          <p>If you would like to reschedule or book a new appointment, please visit our booking page.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}" 
+               style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Book New Appointment
+            </a>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          
+          <p style="color: #666; font-size: 14px;">
+            This is an automated notification from Zone Meet. If you have any questions, please contact ${booking.providerName} directly.
+          </p>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: [booking.customerEmail],
+      subject: 'Appointment Cancelled - Zone Meet',
+      html
+    });
+  }
+
+  /**
+   * 7. Email to customer when booking is rescheduled by provider
+   */
+  async sendBookingReschedule(booking: BookingDetails, newDateTime?: Date): Promise<void> {
+    const customerName = booking.customerName || 'Valued Customer';
+    
+    const originalDate = booking.scheduledAt.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const originalTime = booking.scheduledAt.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    let newDateSection = '';
+    if (newDateTime) {
+      const formattedNewDate = newDateTime.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+      const formattedNewTime = newDateTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      newDateSection = `
+        <div style="background-color: #dbeafe; border: 1px solid #93c5fd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #1e40af;">New Appointment Time</h3>
+          <p><strong>New Date:</strong> ${formattedNewDate}</p>
+          <p><strong>New Time:</strong> ${formattedNewTime}</p>
+        </div>
+      `;
+    }
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Appointment Rescheduled - Zone Meet</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+          ${this.getBrandedHeader()}
+          
+          <h2 style="color: #f59e0b;">📅 Appointment Rescheduled</h2>
+          
+          <p>Dear ${customerName},</p>
+          
+          <p>Your appointment with <strong>${booking.providerName}</strong> has been rescheduled.</p>
+          
+          <div style="background-color: #fef3c7; border: 1px solid #fbbf24; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="margin-top: 0; color: #92400e;">Original Appointment Details</h3>
+            <p><strong>Service:</strong> ${booking.serviceType}</p>
+            <p><strong>Original Date:</strong> ${originalDate}</p>
+            <p><strong>Original Time:</strong> ${originalTime}</p>
+            <p><strong>Duration:</strong> ${booking.duration} minutes</p>
+          </div>
+          
+          ${newDateSection}
+          
+          ${!newDateTime ? `
+            <p>The provider will contact you shortly to arrange a new time that works for both of you.</p>
+          ` : `
+            <p>Please confirm your availability for the new time. If this doesn't work, the provider will contact you to find an alternative.</p>
+          `}
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="mailto:${booking.providerEmail}" 
+               style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+              Contact Provider
+            </a>
+          </div>
+          
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+          
+          <p style="color: #666; font-size: 14px;">
+            This is an automated notification from Zone Meet. Please contact ${booking.providerName} directly at ${booking.providerEmail} to finalize the new appointment time.
+          </p>
+        </body>
+      </html>
+    `;
+
+    await this.sendEmail({
+      to: [booking.customerEmail],
+      subject: 'Appointment Rescheduled - Zone Meet',
+      html
+    });
   }
 
   /**

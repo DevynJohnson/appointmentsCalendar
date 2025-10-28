@@ -248,11 +248,8 @@ export async function POST(request: NextRequest) {
         location: bookingResult.calendarEvent?.location || calendarEvent?.location || 'To be confirmed',
       };
 
-      // Send magic link to customer and notification to provider
-      await Promise.all([
-        emailService.sendMagicLink(bookingResult.id, bookingResult.customer.email, bookingDetails.customerName, bookingDetails.providerName),
-        emailService.sendBookingNotificationToProvider(bookingDetails),
-      ]);
+      // Send booking notification to provider for approval
+      await emailService.sendBookingNotificationToProvider(bookingDetails);
 
     } catch (emailError) {
       console.error('Failed to send emails:', emailError);
@@ -261,7 +258,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Booking request submitted! Please check your email for a confirmation link.',
+      message: 'Booking request submitted successfully! The provider will review your request and send you a confirmation.',
       booking: {
         id: bookingResult.id,
         scheduledAt: bookingResult.scheduledAt,

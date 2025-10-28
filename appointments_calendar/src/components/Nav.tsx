@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface NavProps {
-  type?: 'provider' | 'customer' | 'public';
+  type?: 'provider' | 'public';
 }
 
 interface User {
@@ -103,29 +103,16 @@ export default function Nav({ type = 'public' }: NavProps) {
     { href: '/provider/settings', label: 'Settings', icon: '⚙️' },
   ];
 
-  // Customer Navigation Items
-  const customerNavItems = [
-    { href: '/client/booking', label: 'Book Appointment', icon: '📅' },
-    { href: '/my-bookings', label: 'My Bookings', icon: '📝' },
-    { href: '/locations', label: 'Locations', icon: '📍' },
-  ];
-
-  // Public Navigation Items
+  // Public Navigation Items (used for both public and customer since clients use magic links)
   const publicNavItems = [
     { href: '/', label: 'Home', icon: '' },
     { href: '/client/booking', label: 'Book Appointment', icon: '📅' },
+    { href: '/client/search', label: 'Find Providers', icon: '🔍' },
     { href: '/about', label: 'About', icon: 'ℹ️' },
   ];
 
   const getNavItems = () => {
-    switch (type) {
-      case 'provider':
-        return providerNavItems;
-      case 'customer':
-        return customerNavItems;
-      default:
-        return publicNavItems;
-    }
+    return type === 'provider' ? providerNavItems : publicNavItems;
   };
 
   const navItems = getNavItems();

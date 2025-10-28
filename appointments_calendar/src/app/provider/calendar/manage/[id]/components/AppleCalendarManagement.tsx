@@ -18,7 +18,6 @@ interface CalendarConnection {
   accessToken?: string;
   isDefaultForBookings?: boolean;
   syncEvents?: boolean;
-  allowBookings?: boolean;
 }
 
 interface CalendarEvent {
@@ -27,7 +26,6 @@ interface CalendarEvent {
   startTime: string;
   endTime: string;
   location: string;
-  allowBookings: boolean;
   maxBookings: number;
   currentBookings: number;
 }
@@ -44,7 +42,6 @@ export default function AppleCalendarManagement({ connection, onConnectionUpdate
 
   // Form state
   const [isActive, setIsActive] = useState(connection.isActive);
-  const [syncFrequency, setSyncFrequency] = useState(connection.syncFrequency);
 
   // Apple-specific credentials state
   const [appleId, setAppleId] = useState('');
@@ -79,11 +76,9 @@ export default function AppleCalendarManagement({ connection, onConnectionUpdate
       
       const updateData: {
         isActive: boolean;
-        syncFrequency: number;
         accessToken?: string;
       } = {
         isActive,
-        syncFrequency,
       };
 
       // For Apple connections, include updated credentials if provided
@@ -252,28 +247,6 @@ export default function AppleCalendarManagement({ connection, onConnectionUpdate
                     </label>
                     <p className="mt-1 text-sm text-gray-500">
                       When disabled, this Apple Calendar will not sync events or be available for bookings
-                    </p>
-                  </div>
-
-                  {/* Sync Frequency */}
-                  <div>
-                    <label htmlFor="syncFrequency" className="block text-sm font-medium text-gray-700">
-                      Sync Frequency
-                    </label>
-                    <select
-                      id="syncFrequency"
-                      value={syncFrequency}
-                      onChange={(e) => setSyncFrequency(Number(e.target.value))}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    >
-                      <option value={15}>Every 15 minutes</option>
-                      <option value={30}>Every 30 minutes</option>
-                      <option value={60}>Every hour</option>
-                      <option value={240}>Every 4 hours</option>
-                      <option value={1440}>Daily</option>
-                    </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                      How often to check for Apple Calendar updates (Note: Apple limits sync frequency)
                     </p>
                   </div>
 

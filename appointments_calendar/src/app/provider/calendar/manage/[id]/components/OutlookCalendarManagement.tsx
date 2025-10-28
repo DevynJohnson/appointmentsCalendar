@@ -18,9 +18,8 @@ interface CalendarConnection {
   accessToken?: string;
   isDefaultForBookings?: boolean;
   syncEvents?: boolean;
-  allowBookings?: boolean;
   selectedCalendars?: string[];
-  calendarSettings?: {[key: string]: {syncEvents: boolean, allowBookings: boolean}};
+  calendarSettings?: {[key: string]: {syncEvents: boolean}};
 }
 
 interface AvailableCalendar {
@@ -38,7 +37,6 @@ interface CalendarEvent {
   startTime: string;
   endTime: string;
   location: string;
-  allowBookings: boolean;
   maxBookings: number;
   currentBookings: number;
 }
@@ -55,13 +53,12 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
 
   // Form state
   const [isActive, setIsActive] = useState(connection.isActive);
-  const [syncFrequency, setSyncFrequency] = useState(connection.syncFrequency);
 
   // Multi-calendar state
   const [availableCalendars, setAvailableCalendars] = useState<AvailableCalendar[]>([]);
   const [loadingCalendars, setLoadingCalendars] = useState(false);
   const [selectedCalendars, setSelectedCalendars] = useState<string[]>(connection.selectedCalendars || []);
-  const [calendarSettings, setCalendarSettings] = useState<{[key: string]: {syncEvents: boolean, allowBookings: boolean}}>(connection.calendarSettings || {});
+  const [calendarSettings, setCalendarSettings] = useState<{[key: string]: {syncEvents: boolean}}>(connection.calendarSettings || {});
 
   const loadData = useCallback(async () => {
     try {
@@ -98,11 +95,10 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
             }
             
             // Initialize calendar settings if not already set
-            const initialCalendarSettings: {[key: string]: {syncEvents: boolean, allowBookings: boolean}} = {};
+            const initialCalendarSettings: {[key: string]: {syncEvents: boolean}} = {};
             calendarsData.calendars?.forEach((cal: AvailableCalendar) => {
               initialCalendarSettings[cal.id] = {
                 syncEvents: connection.syncEvents ?? true,
-                allowBookings: connection.allowBookings ?? true,
               };
             });
             setCalendarSettings(initialCalendarSettings);
@@ -122,7 +118,7 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load calendar data');
     }
-  }, [connection.id, connection.selectedCalendars, connection.syncEvents, connection.allowBookings]);
+  }, [connection.id, connection.selectedCalendars, connection.syncEvents]);
 
   useEffect(() => {
     loadData();
@@ -135,13 +131,11 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
       
       // For now, use the settings from the primary calendar (connection.calendarId) 
       // or default values if no specific settings are set
-      const primaryCalendarSettings = calendarSettings[connection.calendarId] || { syncEvents: true, allowBookings: true };
+      const primaryCalendarSettings = calendarSettings[connection.calendarId] || { syncEvents: true };
       
       const updateData = {
         isActive,
-        syncFrequency,
         syncEvents: primaryCalendarSettings.syncEvents,
-        allowBookings: primaryCalendarSettings.allowBookings,
         selectedCalendars,
         calendarSettings,
       };
@@ -344,29 +338,6 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
                     </p>
                   </div>
 
-                  {/* Sync Frequency */}
-                  <div>
-                    <label htmlFor="syncFrequency" className="block text-sm font-medium text-gray-700">
-                      Sync Frequency
-                    </label>
-                    <select
-                      id="syncFrequency"
-                      value={syncFrequency}
-                      onChange={(e) => setSyncFrequency(Number(e.target.value))}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                    >
-                      <option value={5}>Every 5 minutes</option>
-                      <option value={15}>Every 15 minutes</option>
-                      <option value={30}>Every 30 minutes</option>
-                      <option value={60}>Every hour</option>
-                      <option value={240}>Every 4 hours</option>
-                      <option value={1440}>Daily</option>
-                    </select>
-                    <p className="mt-1 text-sm text-gray-500">
-                      How often to check for Outlook Calendar updates
-                    </p>
-                  </div>
-
                   {/* Action Buttons */}
                   <div className="flex space-x-4">
                     <button
@@ -471,23 +442,6 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
                               />
                               <span className="ml-2 text-sm font-medium text-gray-900">Sync Events</span>
                             </label>
-                            <label className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={calendarSettings[calendar.id]?.allowBookings || false}
-                                onChange={(e) => {
-                                  setCalendarSettings({
-                                    ...calendarSettings,
-                                    [calendar.id]: {
-                                      ...calendarSettings[calendar.id],
-                                      allowBookings: e.target.checked
-                                    }
-                                  });
-                                }}
-                                className="rounded border-gray-300 text-green-600 shadow-sm focus:border-green-300 focus:ring focus:ring-green-200 focus:ring-opacity-50"
-                              />
-                              <span className="ml-2 text-sm font-medium text-gray-900">Allow Bookings</span>
-                            </label>
                           </div>
                         </div>
                       </div>
@@ -516,9 +470,8 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
                   <h3 className="text-sm font-medium text-blue-800">Outlook Multi-Calendar Sync Information</h3>
                   <div className="mt-2 text-sm text-blue-700">
                     <ul className="list-disc pl-5 space-y-1">
-                      <li>Select individual calendars for sync and booking availability</li>
+                      <li>Select individual calendars for sync</li>
                       <li><strong>Sync Events:</strong> Pull existing events from this calendar to block booking times</li>
-                      <li><strong>Allow Bookings:</strong> Make this calendar available in the default calendar dropdown for new bookings</li>
                       <li>Outlook Calendar uses Microsoft Graph API for synchronization</li>
                       <li>Supports real-time updates via webhooks when available</li>
                       <li>Changes appear almost instantly across all selected calendars</li>
