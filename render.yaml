@@ -35,6 +35,10 @@ services:
       - key: SECURITY_HEADERS_ENABLED
         value: true
       
+      # Next.js build optimization for Render
+      - key: NEXT_BUILD_CACHE
+        value: "false"
+      
       # Note: Sensitive values like DATABASE_URL, JWT_SECRET, API keys
       # should be set in Render dashboard or via environment sync
     

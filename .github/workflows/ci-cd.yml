@@ -27,16 +27,19 @@ jobs:
         cache: 'npm'
         cache-dependency-path: 'appointments_calendar/package-lock.json'
     
-    # Cache node_modules for faster builds
-    - name: Cache dependencies
-      uses: actions/cache@v4.3.0
+    # Cache node_modules and Next.js build cache for faster builds
+    - name: Cache dependencies and Next.js build
+      uses: actions/cache@v4
       with:
         path: |
           appointments_calendar/node_modules
           ~/.npm
-        key: ${{ runner.os }}-node-${{ hashFiles('appointments_calendar/package-lock.json') }}
+          appointments_calendar/.next/cache
+        # Generate a new cache whenever packages or source files change
+        key: ${{ runner.os }}-nextjs-${{ hashFiles('appointments_calendar/package-lock.json') }}-${{ hashFiles('appointments_calendar/**/*.js', 'appointments_calendar/**/*.jsx', 'appointments_calendar/**/*.ts', 'appointments_calendar/**/*.tsx') }}
+        # If source files changed but packages didn't, rebuild from a prior cache
         restore-keys: |
-          ${{ runner.os }}-node-
+          ${{ runner.os }}-nextjs-${{ hashFiles('appointments_calendar/package-lock.json') }}-
     
     # Install dependencies
     - name: Install dependencies
@@ -53,10 +56,14 @@ jobs:
       working-directory: ./appointments_calendar
       run: npx tsc --noEmit
     
-    # Build the application
+    # Build the application with Next.js caching
     - name: Build application
       working-directory: ./appointments_calendar
-      run: npm run build
+      run: |
+        # Ensure cache directory exists
+        mkdir -p .next/cache
+        # Build with cache enabled
+        npm run build
       env:
         # Mock environment variables for build
         DATABASE_URL: "postgresql://user:pass@localhost:5432/test"
