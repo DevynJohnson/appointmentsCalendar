@@ -46,7 +46,7 @@ services:
     
     # Custom domains (configure after deployment in Render dashboard)
     domains:
-      - www.zone-meet.com
+      # - www.zone-meet.com
       # - zone-meet.com
     
     # Scaling configuration
