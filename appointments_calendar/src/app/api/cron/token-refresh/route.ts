@@ -1,15 +1,18 @@
-// Cron-style scheduled maintenance for token refresh
-// This can be called by external cron services like Vercel Cron or GitHub Actions
+// OPTIONAL: External cron endpoint for token maintenance
+// This endpoint is OPTIONAL - token maintenance already runs automatically 
+// in background during high-traffic endpoints like /api/client/search-providers
+// Only use this if you want additional scheduled maintenance via external cron services
 
 import { NextResponse } from 'next/server';
 import { TokenMaintenanceService } from '@/lib/token-maintenance';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Verify this is being called by an authorized source
-    const authHeader = process.env.CRON_SECRET;
+    const authHeader = request.headers.get('authorization');
+    const expectedSecret = process.env.CRON_SECRET;
     
-    if (!authHeader) {
+    if (!expectedSecret || authHeader !== `Bearer ${expectedSecret}`) {
       console.log('⚠️ Token maintenance called without proper authentication');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

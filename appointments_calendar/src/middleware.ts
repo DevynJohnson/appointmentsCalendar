@@ -1,26 +1,36 @@
-// Lightweight middleware for token maintenance
-// Runs maintenance on a small percentage of requests to spread the load
+// Enhanced security middleware with CSP, CSRF protection, WAF, and rate limiting
+// Combines security headers with lightweight token maintenance
 
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { securityMiddleware } from './lib/security-headers';
+import { wafMiddleware } from './middleware/waf';
 
 export function middleware(request: NextRequest) {
-  // Only run maintenance on 1% of requests to avoid performance impact
+  // Apply WAF protection first
+  const wafResponse = wafMiddleware(request);
+  
+  // If WAF blocks the request, return immediately
+  if (wafResponse.status !== 200) {
+    return wafResponse;
+  }
+  
+  // Apply security headers to all requests
+  const response = securityMiddleware(request);
+  
+  // Only run maintenance on 1% of API requests to avoid performance impact
   const shouldRunMaintenance = Math.random() < 0.01;
   
   if (shouldRunMaintenance && request.nextUrl.pathname.startsWith('/api/')) {
     // Add header to trigger background maintenance
-    const response = NextResponse.next();
     response.headers.set('x-trigger-maintenance', 'true');
-    return response;
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
   matcher: [
-    // Only run on API routes to avoid affecting static assets
-    '/api/((?!_next/static|_next/image|favicon.ico).*)',
+    // Apply to all routes except static assets
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

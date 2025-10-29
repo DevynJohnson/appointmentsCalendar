@@ -1,0 +1,126 @@
+# Render.com deployment configuration for Zone Meet
+# This file defines infrastructure as code for automatic deployment
+
+services:
+  # Main web service for Zone Meet application
+  - type: web
+    name: zone-meet
+    runtime: node
+    region: ohio # US East region for optimal performance
+    plan: starter # upgrade to standard/pro as needed
+    
+    # Build configuration
+    buildCommand: cd appointments_calendar && npm ci && npx prisma generate && npm run build
+    startCommand: cd appointments_calendar && npm start
+    
+    # Environment variables
+    envVars:
+      # Core application settings
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      
+      # WAF (Web Application Firewall) settings
+      - key: WAF_ENABLED
+        value: true
+      - key: WAF_RATE_LIMIT_MAX_REQUESTS
+        value: 100
+      - key: WAF_RATE_LIMIT_WINDOW
+        value: 60000
+      - key: WAF_BLOCK_SUSPICIOUS_PATTERNS
+        value: true
+      
+      # Security headers and monitoring
+      - key: SECURITY_HEADERS_ENABLED
+        value: true
+      
+      # Note: Sensitive values like DATABASE_URL, JWT_SECRET, API keys
+      # should be set in Render dashboard or via environment sync
+    
+    # Health check configuration
+    healthCheckPath: /api/health
+    
+    # Custom headers for security
+    headers:
+      - name: "X-Frame-Options"
+        value: "DENY"
+      - name: "X-Content-Type-Options"
+        value: "nosniff"
+      - name: "X-XSS-Protection"
+        value: "1; mode=block"
+      - name: "Referrer-Policy"
+        value: "strict-origin-when-cross-origin"
+      - name: "Permissions-Policy"
+        value: "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+    
+    # Automatic deployment
+    autoDeploy: true
+    
+    # Custom domains (configure after deployment)
+    domains:
+      - www.zone-meet.com
+      - zone-meet.com
+    
+    # Scaling configuration
+    numInstances: 1 # increase for production
+    
+    # Build environment settings
+    buildFilter:
+      paths:
+        - appointments_calendar/**
+      ignoredPaths:
+        - "**/*.md"
+        - "docs/**"
+        - ".github/**"
+
+  # PostgreSQL database service
+  - type: pserv
+    name: zone-meet-db
+    plan: starter # free tier
+    databaseName: zonemeet
+    databaseUser: zonemeet_user
+    region: ohio # same region as web service for optimal performance
+    
+    # Database configuration
+    ipAllowList: [] # empty = allow from web service only
+    
+# Optional: Redis service for caching/sessions
+# Uncomment if you need Redis for session storage or caching
+#  - type: redis
+#    name: zone-meet-redis
+#    plan: starter # free tier
+#    region: ohio # same region as other services
+#    ipAllowList: []
+
+# Background jobs service (if needed for email, calendar sync)
+# Uncomment if you have background processing needs
+#  - type: worker
+#    name: zone-meet-worker
+#    runtime: node
+#    buildCommand: npm ci
+#    startCommand: npm run worker
+#    envVarsFrom:
+#      - service: zone-meet
+#    autoDeploy: true
+
+# Static site for documentation (optional)
+# Uncomment if you want to host docs separately
+#  - type: static
+#    name: zone-meet-docs
+#    buildCommand: npm run build:docs
+#    staticPublishPath: ./docs/dist
+#    headers:
+#      - name: "Cache-Control"
+#        value: "public, max-age=86400"
+
+# Environment variable groups (shared across services)
+envVarGroups:
+  - name: shared-config
+    envVars:
+      - key: LOG_LEVEL
+        value: info
+      - key: APP_NAME
+        value: "Zone Meet"
+      - key: APP_VERSION
+        value: "1.0.0"

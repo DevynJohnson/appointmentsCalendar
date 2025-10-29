@@ -1,9 +1,38 @@
 /**
- * Professional input validation using Zod
- * Zod is the industry standard for TypeScript-first schema validation
+ * Professional input validation using Zod with enhanced security features
+ * Includes XSS protection, SQL injection prevention, and comprehensive sanitization
  */
 
 import { z } from 'zod';
+import DOMPurify from 'isomorphic-dompurify';
+
+/**
+ * Sanitize HTML content to prevent XSS attacks
+ */
+export function sanitizeHtml(input: string): string {
+  if (typeof input !== 'string') return '';
+  
+  return DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [], // No HTML tags allowed by default
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+  });
+}
+
+/**
+ * Enhanced text transformation with XSS protection
+ */
+const sanitizedTextTransform = (text: string) => {
+  const trimmed = text.trim();
+  const sanitized = sanitizeHtml(trimmed);
+  
+  // Additional security checks
+  if (sanitized !== trimmed) {
+    throw new Error('Input contains potentially malicious content');
+  }
+  
+  return sanitized;
+};
 
 // Password validation schema with all security requirements
 export const passwordSchema = z
@@ -23,14 +52,14 @@ export const passwordSchema = z
     return !commonPasswords.includes(password.toLowerCase());
   }, 'Password is too common and easily guessable');
 
-// Email validation schema
+// Email validation schema with XSS protection
 export const emailSchema = z
   .string()
   .email('Please provide a valid email address')
   .max(254, 'Email address is too long')
-  .transform(email => email.toLowerCase().trim());
+  .transform(email => sanitizeHtml(email.toLowerCase().trim()));
 
-// Phone validation schema
+// Phone validation schema with sanitization
 export const phoneSchema = z
   .string()
   .refine((phone) => {
@@ -46,22 +75,22 @@ export const phoneSchema = z
     // Check for valid characters
     return /^[\d\s\-\(\)\+\.]+$/.test(phone);
   }, 'Phone number contains invalid characters')
-  .transform(phone => phone ? phone.replace(/\D/g, '') : ''); // Remove non-digits, return empty string if empty
+  .transform(phone => phone ? sanitizeHtml(phone).replace(/\D/g, '') : ''); // Remove non-digits, return empty string if empty
 
-// Text field validation (for names, company, etc.)
+// Text field validation with XSS protection (for names, company, etc.)
 export const textFieldSchema = z
   .string()
   .min(1, 'This field is required')
   .max(255, 'Text is too long')
-  .transform(text => text.trim())
+  .transform(sanitizedTextTransform)
   .refine(text => text.length > 0, 'Field cannot be empty after trimming');
 
-// Bio/description validation
+// Bio/description validation with XSS protection
 export const bioSchema = z
   .string()
   .max(1000, 'Bio must be no more than 1000 characters')
   .optional()
-  .transform(bio => bio?.trim() || undefined);
+  .transform(bio => bio ? sanitizedTextTransform(bio) : undefined);
 
 // Provider registration validation schema
 export const providerRegistrationSchema = z.object({
@@ -94,7 +123,7 @@ export const calendarConnectionSchema = z.object({
   allowBookings: z.boolean().default(true),
 });
 
-// Appointment booking validation schema
+// Appointment booking validation schema with enhanced security
 export const appointmentBookingSchema = z.object({
   clientName: textFieldSchema,
   clientEmail: emailSchema,
@@ -102,11 +131,76 @@ export const appointmentBookingSchema = z.object({
   startTime: z.date(),
   endTime: z.date(),
   title: textFieldSchema,
-  description: z.string().max(500, 'Description is too long').optional(),
-  location: z.string().max(200, 'Location is too long').optional(),
+  description: z.string().max(500, 'Description is too long').optional()
+    .transform(desc => desc ? sanitizedTextTransform(desc) : undefined),
+  location: z.string().max(200, 'Location is too long').optional()
+    .transform(loc => loc ? sanitizedTextTransform(loc) : undefined),
 }).refine(data => data.endTime > data.startTime, {
   message: 'End time must be after start time',
   path: ['endTime'],
+});
+
+// UUID validation schema for secure ID handling
+export const uuidSchema = z
+  .string()
+  .uuid('Invalid ID format')
+  .transform(sanitizeHtml);
+
+// URL validation schema with security checks
+export const urlSchema = z
+  .string()
+  .url('Invalid URL format')
+  .refine((url) => {
+    // Only allow HTTP/HTTPS protocols
+    return url.startsWith('https://') || url.startsWith('http://');
+  }, 'Only HTTP/HTTPS URLs are allowed')
+  .transform(sanitizeHtml);
+
+// Database query parameter validation to prevent SQL injection
+export const dbQueryParamSchema = z
+  .string()
+  .refine((param) => {
+    // Check for SQL injection patterns
+    const sqlInjectionPatterns = [
+      /['";]/,  // Quote characters
+      /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b)/i,
+      /(--|\*\/|\/\*)/,  // SQL comments
+      /(\bor\b.*\b=\b|\band\b.*\b=\b)/i,  // Common injection patterns
+    ];
+    
+    return !sqlInjectionPatterns.some(pattern => pattern.test(param));
+  }, 'Parameter contains potentially malicious content')
+  .transform(sanitizeHtml);
+
+// File upload validation
+export const fileUploadSchema = z.object({
+  filename: z.string()
+    .min(1, 'Filename is required')
+    .max(255, 'Filename is too long')
+    .refine((filename) => {
+      // Only allow safe characters in filenames
+      return /^[a-zA-Z0-9._-]+$/.test(filename);
+    }, 'Filename contains invalid characters')
+    .refine((filename) => {
+      // Check for directory traversal attempts
+      return !filename.includes('..') && !filename.includes('/') && !filename.includes('\\');
+    }, 'Filename contains path traversal characters'),
+  mimetype: z.string()
+    .refine((type) => {
+      // Only allow specific MIME types
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp',
+        'application/pdf',
+        'text/plain',
+      ];
+      return allowedTypes.includes(type);
+    }, 'File type not allowed'),
+  size: z.number()
+    .min(1, 'File cannot be empty')
+    .max(10 * 1024 * 1024, 'File size cannot exceed 10MB'), // 10MB limit
 });
 
 /**
@@ -134,9 +228,57 @@ export async function validateRequestBody<T>(
 }
 
 /**
- * Create validation error response
+ * Create validation error response with security logging
  */
-export function createValidationErrorResponse(errors: string[]) {
+export function createValidationErrorResponse(errors: string[], request?: Request) {
+  // Log validation failures for security monitoring
+  if (request) {
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                    request.headers.get('x-real-ip') || 
+                    'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    console.warn('Validation failure detected:', {
+      timestamp: new Date().toISOString(),
+      ip: clientIP,
+      userAgent,
+      url: request.url,
+      errors,
+    });
+    
+    // Check for potential security threats
+    const suspiciousPatterns = [
+      'script',
+      'javascript',
+      'vbscript',
+      'onload',
+      'onerror',
+      'union',
+      'select',
+      'insert',
+      'update',
+      'delete',
+      'drop',
+    ];
+    
+    const hasSuspiciousContent = errors.some(error => 
+      suspiciousPatterns.some(pattern => 
+        error.toLowerCase().includes(pattern)
+      )
+    );
+    
+    if (hasSuspiciousContent) {
+      console.error('SECURITY ALERT: Suspicious validation failure detected:', {
+        timestamp: new Date().toISOString(),
+        ip: clientIP,
+        userAgent,
+        url: request.url,
+        errors,
+        severity: 'HIGH',
+      });
+    }
+  }
+  
   return new Response(
     JSON.stringify({
       error: 'Validation failed',
@@ -147,6 +289,89 @@ export function createValidationErrorResponse(errors: string[]) {
       headers: { 'Content-Type': 'application/json' }
     }
   );
+}
+
+/**
+ * Security headers validation middleware
+ */
+export function validateSecurityHeaders(request: Request): {
+  isValid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  
+  // Check for required security headers in POST/PUT/DELETE requests
+  if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)) {
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      errors.push('Invalid Content-Type header');
+    }
+    
+    const csrfToken = request.headers.get('x-csrf-token');
+    if (!csrfToken) {
+      errors.push('Missing CSRF token');
+    }
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+}
+
+/**
+ * Request rate limiting check
+ */
+export interface RateLimitConfig {
+  windowMs: number;  // Time window in milliseconds
+  maxRequests: number;  // Max requests per window
+  skipSuccessfulRequests?: boolean;
+}
+
+const requestCounts = new Map<string, { count: number; resetTime: number }>();
+
+export function checkRateLimit(
+  clientId: string, 
+  config: RateLimitConfig
+): { allowed: boolean; remaining: number; resetTime: number } {
+  const now = Date.now();
+  
+  // Clean up old entries
+  for (const [key, value] of requestCounts.entries()) {
+    if (value.resetTime < now) {
+      requestCounts.delete(key);
+    }
+  }
+  
+  const current = requestCounts.get(clientId);
+  
+  if (!current || current.resetTime < now) {
+    // First request in window or window expired
+    requestCounts.set(clientId, {
+      count: 1,
+      resetTime: now + config.windowMs,
+    });
+    return {
+      allowed: true,
+      remaining: config.maxRequests - 1,
+      resetTime: now + config.windowMs,
+    };
+  }
+  
+  if (current.count >= config.maxRequests) {
+    return {
+      allowed: false,
+      remaining: 0,
+      resetTime: current.resetTime,
+    };
+  }
+  
+  current.count++;
+  return {
+    allowed: true,
+    remaining: config.maxRequests - current.count,
+    resetTime: current.resetTime,
+  };
 }
 
 /**
