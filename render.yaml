@@ -41,19 +41,6 @@ services:
     # Health check configuration
     healthCheckPath: /api/health
     
-    # Custom headers for security
-    headers:
-      - name: "X-Frame-Options"
-        value: "DENY"
-      - name: "X-Content-Type-Options"
-        value: "nosniff"
-      - name: "X-XSS-Protection"
-        value: "1; mode=block"
-      - name: "Referrer-Policy"
-        value: "strict-origin-when-cross-origin"
-      - name: "Permissions-Policy"
-        value: "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
-    
     # Automatic deployment
     autoDeploy: true
     
@@ -78,16 +65,16 @@ services:
 # Uncomment if you need Redis for session storage or caching
 #  - type: redis
 #    name: zone-meet-redis
-#    plan: starter # free tier
-#    region: ohio # same region as other services
-#    ipAllowList: []
+#    plan: starter
+#    region: ohio
 
 # Background jobs service (if needed for email, calendar sync)
 # Uncomment if you have background processing needs
 #  - type: worker
 #    name: zone-meet-worker
 #    runtime: node
-#    buildCommand: npm ci
+#    region: ohio
+#    buildCommand: cd appointments_calendar && npm ci
 #    startCommand: npm run worker
 #    envVarsFrom:
 #      - service: zone-meet
@@ -99,9 +86,6 @@ services:
 #    name: zone-meet-docs
 #    buildCommand: npm run build:docs
 #    staticPublishPath: ./docs/dist
-#    headers:
-#      - name: "Cache-Control"
-#        value: "public, max-age=86400"
 
 # Environment variable groups (shared across services)
 envVarGroups:
