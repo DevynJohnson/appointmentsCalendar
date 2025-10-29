@@ -4,10 +4,10 @@
 services:
   # Main web service for Zone Meet application
   - type: web
-    name: zone-meet
+    name: zone-meet-app
     runtime: node
-    region: ohio # US East region for optimal performance
-    plan: starter # upgrade to standard/pro as needed
+    region: ohio
+    plan: starter
     
     # Build configuration
     buildCommand: cd appointments_calendar && npm ci && npx prisma generate && npm run build
@@ -44,22 +44,13 @@ services:
     # Automatic deployment
     autoDeploy: true
     
-    # Custom domains (configure after deployment)
+    # Custom domains (configure after deployment in Render dashboard)
     domains:
       - www.zone-meet.com
       - zone-meet.com
     
     # Scaling configuration
-    numInstances: 1 # increase for production
-    
-    # Build environment settings
-    buildFilter:
-      paths:
-        - appointments_calendar/**
-      ignoredPaths:
-        - "**/*.md"
-        - "docs/**"
-        - ".github/**"
+    numInstances: 1
     
 # Optional: Redis service for caching/sessions
 # Uncomment if you need Redis for session storage or caching
