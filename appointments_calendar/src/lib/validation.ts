@@ -4,19 +4,24 @@
  */
 
 import { z } from 'zod';
-import DOMPurify from 'isomorphic-dompurify';
 
 /**
- * Sanitize HTML content to prevent XSS attacks
+ * Sanitize HTML content to prevent XSS attacks (Edge Runtime compatible)
  */
 export function sanitizeHtml(input: string): string {
   if (typeof input !== 'string') return '';
   
-  return DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [], // No HTML tags allowed by default
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  });
+  // Use basic sanitization for Edge Runtime compatibility
+  // Remove potentially dangerous HTML tags and scripts
+  const sanitized = input
+    .replace(/<script[^>]*>.*?<\/script>/gi, '') // Remove script tags
+    .replace(/<[^>]*>/g, '') // Remove all HTML tags
+    .replace(/javascript:/gi, '') // Remove javascript: protocols
+    .replace(/vbscript:/gi, '') // Remove vbscript: protocols
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers
+    .trim();
+  
+  return sanitized;
 }
 
 /**
