@@ -67,9 +67,9 @@ services:
 #    region: ohio
 #    buildCommand: cd appointments_calendar && npm ci
 #    startCommand: npm run worker
-    envVarsFrom:
-      - service: appointmentsCalendar
-    autoDeploy: true
+#    envVarsFrom:
+#      - service: appointmentsCalendar
+#    autoDeploy: true
 
 # Static site for documentation (optional)
 # Uncomment if you want to host docs separately
