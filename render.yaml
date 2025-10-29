@@ -73,17 +73,6 @@ services:
         - "**/*.md"
         - "docs/**"
         - ".github/**"
-
-  # PostgreSQL database service
-  - type: pserv
-    name: zone-meet-db
-    plan: starter # free tier
-    databaseName: zonemeet
-    databaseUser: zonemeet_user
-    region: ohio # same region as web service for optimal performance
-    
-    # Database configuration
-    ipAllowList: [] # empty = allow from web service only
     
 # Optional: Redis service for caching/sessions
 # Uncomment if you need Redis for session storage or caching
