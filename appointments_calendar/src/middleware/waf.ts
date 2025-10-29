@@ -73,32 +73,75 @@ export function wafMiddleware(request: NextRequest, config: WAFConfig = defaultW
     return createRateLimitResponse(rateLimit);
   }
   
-  // 4. Suspicious Pattern Detection
+  // 4. Suspicious Pattern Detection (skip for OAuth callbacks and calendar integrations)
   if (config.blockSuspiciousPatterns) {
-    const suspiciousCheck = detectSuspiciousPatterns(request);
-    if (suspiciousCheck.isSuspicious) {
-      logSuspiciousActivity(
-        suspiciousCheck.reason === 'SQL_INJECTION' ? 'SQL_INJECTION_ATTEMPT' :
-        suspiciousCheck.reason === 'XSS' ? 'XSS_ATTEMPT' :
-        suspiciousCheck.reason === 'SCANNER_DETECTED' ? 'SCANNER_DETECTED' :
-        'SUSPICIOUS_LOGIN_ATTEMPT',
-        clientIP,
-        userAgent,
-        request.url,
-        { pattern: suspiciousCheck.reason }
-      );
-      return createSecurityResponse('Suspicious activity detected', 403, 'SUSPICIOUS_PATTERN');
+    const pathname = new URL(request.url).pathname;
+    
+    // Skip pattern detection for OAuth callbacks and calendar API endpoints
+    const isOAuthOrCalendar = [
+      '/api/provider/calendar/connect',
+      '/api/provider/calendar/callback',
+      '/api/oauth/callback',
+      '/api/auth/callback',
+      '/callback',
+      '/oauth',
+      '/connect'
+    ].some(path => pathname.includes(path)) || 
+    pathname.includes('calendar') || 
+    pathname.includes('oauth') || 
+    pathname.includes('microsoft') || 
+    pathname.includes('google') || 
+    pathname.includes('apple');
+    
+    if (!isOAuthOrCalendar) {
+      const suspiciousCheck = detectSuspiciousPatterns(request);
+      if (suspiciousCheck.isSuspicious) {
+        logSuspiciousActivity(
+          suspiciousCheck.reason === 'SQL_INJECTION' ? 'SQL_INJECTION_ATTEMPT' :
+          suspiciousCheck.reason === 'XSS' ? 'XSS_ATTEMPT' :
+          suspiciousCheck.reason === 'SCANNER_DETECTED' ? 'SCANNER_DETECTED' :
+          'SUSPICIOUS_LOGIN_ATTEMPT',
+          clientIP,
+          userAgent,
+          request.url,
+          { pattern: suspiciousCheck.reason }
+        );
+        return createSecurityResponse('Suspicious activity detected', 403, 'SUSPICIOUS_PATTERN');
+      }
     }
   }
   
-  // 5. Validate Security Headers for state-changing operations
+  // 5. Validate Security Headers for state-changing operations (exclude auth endpoints)
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)) {
-    const headerValidation = validateSecurityHeaders(request);
-    if (!headerValidation.isValid) {
-      logSuspiciousActivity('CSRF_TOKEN_INVALID', clientIP, userAgent, request.url, {
-        errors: headerValidation.errors,
-      });
-      return createSecurityResponse('Invalid security headers', 400, 'INVALID_HEADERS');
+    const pathname = new URL(request.url).pathname;
+    
+    // Skip header validation for authentication endpoints
+    const authEndpoints = [
+      '/api/auth/login',
+      '/api/auth/register', 
+      '/api/auth/csrf',
+      '/api/provider/auth/login',
+      '/api/provider/auth/register',
+      '/api/provider/login',
+      '/api/provider/register',
+      '/api/oauth',
+      '/api/callback',
+      '/api/provider/calendar/connect',
+      '/api/provider/calendar/callback'
+    ];
+    
+    const isAuthEndpoint = authEndpoints.some(endpoint => 
+      pathname === endpoint || pathname.startsWith(endpoint)
+    );
+    
+    if (!isAuthEndpoint) {
+      const headerValidation = validateSecurityHeaders(request);
+      if (!headerValidation.isValid) {
+        logSuspiciousActivity('CSRF_TOKEN_INVALID', clientIP, userAgent, request.url, {
+          errors: headerValidation.errors,
+        });
+        return createSecurityResponse('Invalid security headers', 400, 'INVALID_HEADERS');
+      }
     }
   }
   
@@ -124,6 +167,16 @@ function getClientIP(request: NextRequest): string {
 function detectSuspiciousPatterns(request: NextRequest): { isSuspicious: boolean; reason?: string } {
   const userAgent = request.headers.get('user-agent')?.toLowerCase() || '';
   const pathname = new URL(request.url).pathname.toLowerCase();
+  const searchParams = new URL(request.url).searchParams;
+  
+  // Skip pattern detection for legitimate OAuth parameters
+  const hasOAuthParams = ['code', 'state', 'scope', 'access_token', 'refresh_token', 'client_id'].some(
+    param => searchParams.has(param)
+  );
+  
+  if (hasOAuthParams) {
+    return { isSuspicious: false };
+  }
   
   // Skip pattern detection for legitimate browser requests
   const legitimateBrowsers = [
@@ -174,7 +227,7 @@ function detectSuspiciousPatterns(request: NextRequest): { isSuspicious: boolean
     }
   }
   
-  // Only flag obviously malicious user agents, not legitimate browsers
+  // Only flag obviously malicious user agents, not legitimate browsers or OAuth clients
   if (!isLegitimateUserAgent) {
     const maliciousUserAgentPatterns = [
       /nikto|nessus|openvas|sqlmap|burp|nmap|masscan/i,
@@ -182,9 +235,19 @@ function detectSuspiciousPatterns(request: NextRequest): { isSuspicious: boolean
       /^curl\/|^wget\/|^python-requests/i, // Only basic curl/wget without browser context
     ];
     
-    for (const pattern of maliciousUserAgentPatterns) {
-      if (pattern.test(userAgent)) {
-        return { isSuspicious: true, reason: 'SCANNER_DETECTED' };
+    // Don't flag legitimate OAuth client libraries
+    const legitOAuthClients = [
+      /microsoft|google|apple|oauth/i,
+      /graph\.microsoft\.com|googleapis\.com|appleid\.apple\.com/i
+    ];
+    
+    const isLegitOAuthClient = legitOAuthClients.some(pattern => pattern.test(userAgent));
+    
+    if (!isLegitOAuthClient) {
+      for (const pattern of maliciousUserAgentPatterns) {
+        if (pattern.test(userAgent)) {
+          return { isSuspicious: true, reason: 'SCANNER_DETECTED' };
+        }
       }
     }
   }
