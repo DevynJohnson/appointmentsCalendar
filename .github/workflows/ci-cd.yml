@@ -1,0 +1,145 @@
+# GitHub Actions CI/CD Pipeline for Zone Meet
+# Automatically builds, tests, and validates code on every push
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Build and Test Job
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Checkout the repository
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Set up Node.js
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'appointments_calendar/package-lock.json'
+    
+    # Cache node_modules for faster builds
+    - name: Cache dependencies
+      uses: actions/cache@v4.3.0
+      with:
+        path: |
+          appointments_calendar/node_modules
+          ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('appointments_calendar/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    
+    # Install dependencies
+    - name: Install dependencies
+      working-directory: ./appointments_calendar
+      run: npm ci
+    
+    # Run linting
+    - name: Run ESLint
+      working-directory: ./appointments_calendar
+      run: npm run lint
+    
+    # Run type checking
+    - name: TypeScript type check
+      working-directory: ./appointments_calendar
+      run: npx tsc --noEmit
+    
+    # Build the application
+    - name: Build application
+      working-directory: ./appointments_calendar
+      run: npm run build
+      env:
+        # Mock environment variables for build
+        DATABASE_URL: "postgresql://user:pass@localhost:5432/test"
+        DIRECT_URL: "postgresql://user:pass@localhost:5432/test"
+        JWT_SECRET: "test-jwt-secret-for-build"
+        NEXTAUTH_SECRET: "test-nextauth-secret-for-build"
+        NODE_ENV: "production"
+    
+    # Security audit
+    - name: Security audit
+      working-directory: ./appointments_calendar
+      run: npm audit --audit-level high
+      continue-on-error: true
+    
+    # Upload build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-files
+        path: |
+          appointments_calendar/.next
+          appointments_calendar/package.json
+          appointments_calendar/package-lock.json
+        retention-days: 1
+
+  # Security Scanning Job
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Run CodeQL analysis for security vulnerabilities
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v2
+      with:
+        languages: javascript, typescript
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+  # Deployment Validation Job (runs on main branch only)
+  validate-deployment:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    # Validate render.yaml syntax
+    - name: Validate render.yaml
+      run: |
+        # Basic YAML syntax validation
+        python -c "import yaml; yaml.safe_load(open('render.yaml', 'r'))"
+    
+    # Check for environment variables documentation
+    - name: Validate environment setup
+      run: |
+        echo "✅ Checking required files exist..."
+        ls -la appointments_calendar/package.json
+        ls -la render.yaml
+        ls -la ENVIRONMENT_VARIABLES.md || echo "⚠️ Consider adding ENVIRONMENT_VARIABLES.md"
+        echo "✅ Deployment validation complete"
+
+  # Auto-deploy notification (optional)
+  deployment-ready:
+    runs-on: ubuntu-latest
+    needs: [build-and-test, security-scan, validate-deployment]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Deployment Ready Notification
+      run: |
+        echo "🚀 All checks passed! Code is ready for deployment to Render."
+        echo "📋 Summary:"
+        echo "   ✅ Build successful"
+        echo "   ✅ Linting passed"
+        echo "   ✅ Type checking passed"
+        echo "   ✅ Security scan completed"
+        echo "   ✅ Deployment validation passed"
+        echo ""
+        echo "🔄 Render will auto-deploy from this commit if autoDeploy is enabled."

@@ -52,13 +52,6 @@ services:
     # Scaling configuration
     numInstances: 1
     
-# Optional: Redis service for caching/sessions
-# Uncomment if you need Redis for session storage or caching
-#  - type: redis
-#    name: zone-meet-redis
-#    plan: starter
-#    region: ohio
-
 # Background jobs service (if needed for email, calendar sync)
 # Uncomment if you have background processing needs
 #  - type: worker
