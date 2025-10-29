@@ -122,54 +122,70 @@ function getClientIP(request: NextRequest): string {
 }
 
 function detectSuspiciousPatterns(request: NextRequest): { isSuspicious: boolean; reason?: string } {
-  const url = request.url.toLowerCase();
   const userAgent = request.headers.get('user-agent')?.toLowerCase() || '';
+  const pathname = new URL(request.url).pathname.toLowerCase();
   
-  // Common attack patterns
-  const suspiciousPatterns = [
-    // SQL Injection
-    { pattern: /(\b(union|select|insert|update|delete|drop|create|alter|exec|execute)\b)/i, type: 'SQL_INJECTION' },
-    { pattern: /((\d+[\s]*=[\s]*\d+)|('\s*(or|and)\s*')|("\s*(or|and)\s*"))/i, type: 'SQL_INJECTION' },
-    { pattern: /(\|\||\&\&|concat\s*\(|char\s*\(|ascii\s*\()/i, type: 'SQL_INJECTION' },
-    
-    // XSS
-    { pattern: /<script[^>]*>/i, type: 'XSS' },
-    { pattern: /javascript\s*:/i, type: 'XSS' },
-    { pattern: /vbscript\s*:/i, type: 'XSS' },
-    { pattern: /on\w+\s*=/i, type: 'XSS' },
-    { pattern: /(expression|behaviour|behavior)\s*[\(\[].*[\)\]]/i, type: 'XSS' },
-    
-    // Path Traversal
-    { pattern: /\.\.[\/\\]|\.{2}[\/\\]/i, type: 'PATH_TRAVERSAL' },
-    { pattern: /\/etc\/passwd|\/etc\/shadow|c:\\windows\\system32/i, type: 'PATH_TRAVERSAL' },
-    
-    // Command Injection
-    { pattern: /[;&|`](\s*\w+\s*)*[;&|`]/i, type: 'COMMAND_INJECTION' },
-    { pattern: /(exec\(|system\(|shell_exec\(|eval\()/i, type: 'COMMAND_INJECTION' },
-    
-    // LDAP Injection
-    { pattern: /(\)\(\w+=\*\)|(\*\)\(\w+=\w+))/i, type: 'LDAP_INJECTION' },
-    
-    // XML Injection
-    { pattern: /(<\?xml|<!DOCTYPE|<!\[CDATA\[)/i, type: 'XML_INJECTION' },
+  // Skip pattern detection for legitimate browser requests
+  const legitimateBrowsers = [
+    /mozilla.*firefox/i,
+    /mozilla.*chrome/i,
+    /mozilla.*safari/i,
+    /mozilla.*edge/i,
+    /opera/i,
+    /webkit/i
   ];
   
-  for (const { pattern, type } of suspiciousPatterns) {
-    if (pattern.test(url) || pattern.test(userAgent)) {
+  const isLegitimateUserAgent = legitimateBrowsers.some(pattern => pattern.test(userAgent));
+  
+  // Only check URL patterns for suspicious requests, not user agents of legitimate browsers
+  const urlToCheck = pathname;
+  
+  // More targeted SQL Injection patterns (only in URL path/query, not user-agent)
+  const sqlPatterns = [
+    { pattern: /(\bunion\b.*\bselect\b|\bselect\b.*\bfrom\b)/i, type: 'SQL_INJECTION' },
+    { pattern: /(\'\s*(or|and)\s*\d+\s*=\s*\d+|"\s*(or|and)\s*\d+\s*=\s*\d+)/i, type: 'SQL_INJECTION' },
+    { pattern: /(\bexec\s*\(|\bexecute\s*\(|\bunion\s*all\s*select)/i, type: 'SQL_INJECTION' },
+  ];
+  
+  // XSS patterns (only check URL, not user-agent)
+  const xssPatterns = [
+    { pattern: /<script[^>]*>.*<\/script>/i, type: 'XSS' },
+    { pattern: /javascript\s*:\s*alert\s*\(/i, type: 'XSS' },
+    { pattern: /on(load|click|error|focus)\s*=\s*["\'][^"\']*["\']/i, type: 'XSS' },
+  ];
+  
+  // Path Traversal patterns
+  const pathTraversalPatterns = [
+    { pattern: /\.\.\//g, type: 'PATH_TRAVERSAL' },
+    { pattern: /\/etc\/passwd|\/etc\/shadow|c:\\windows\\system32/i, type: 'PATH_TRAVERSAL' },
+  ];
+  
+  // Command Injection patterns (very specific)
+  const commandPatterns = [
+    { pattern: /[;&|`]\s*(rm|cat|ls|ps|wget|curl|nc|netcat)\s+/i, type: 'COMMAND_INJECTION' },
+  ];
+  
+  // Check URL patterns only
+  const allPatterns = [...sqlPatterns, ...xssPatterns, ...pathTraversalPatterns, ...commandPatterns];
+  
+  for (const { pattern, type } of allPatterns) {
+    if (pattern.test(urlToCheck)) {
       return { isSuspicious: true, reason: type };
     }
   }
   
-  // Check for automated scanning tools
-  const scannerPatterns = [
-    /nikto|nessus|openvas|sqlmap|burp|nmap|masscan/i,
-    /gobuster|dirb|dirbuster|wfuzz|ffuf/i,
-    /curl\/7\.|wget\/1\.|python-requests/i,
-  ];
-  
-  for (const pattern of scannerPatterns) {
-    if (pattern.test(userAgent)) {
-      return { isSuspicious: true, reason: 'SCANNER_DETECTED' };
+  // Only flag obviously malicious user agents, not legitimate browsers
+  if (!isLegitimateUserAgent) {
+    const maliciousUserAgentPatterns = [
+      /nikto|nessus|openvas|sqlmap|burp|nmap|masscan/i,
+      /gobuster|dirb|dirbuster|wfuzz|ffuf/i,
+      /^curl\/|^wget\/|^python-requests/i, // Only basic curl/wget without browser context
+    ];
+    
+    for (const pattern of maliciousUserAgentPatterns) {
+      if (pattern.test(userAgent)) {
+        return { isSuspicious: true, reason: 'SCANNER_DETECTED' };
+      }
     }
   }
   

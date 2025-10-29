@@ -29,7 +29,7 @@ services:
       - key: WAF_RATE_LIMIT_WINDOW
         value: 60000
       - key: WAF_BLOCK_SUSPICIOUS_PATTERNS
-        value: true
+        value: false
       
       # Security headers and monitoring
       - key: SECURITY_HEADERS_ENABLED
@@ -39,8 +39,22 @@ services:
       - key: NEXT_BUILD_CACHE
         value: "false"
       
-      # Note: Sensitive values like DATABASE_URL, JWT_SECRET, API keys
-      # should be set in Render dashboard or via environment sync
+      # Note: The following sensitive values must be set in Render dashboard:
+      # - DATABASE_URL (Supabase PostgreSQL connection string)
+      # - DIRECT_URL (Supabase direct connection for migrations)
+      # - JWT_SECRET (32+ character random string for JWT tokens)
+      # - NEXTAUTH_SECRET (32+ character random string for NextAuth)
+      # - MAILEROO_API_KEY (Maileroo SMTP API key)
+      # - MAILEROO_FROM_EMAIL (Verified sender email address)
+      # - GOOGLE_CLIENT_ID (Google OAuth app client ID)
+      # - GOOGLE_CLIENT_SECRET (Google OAuth app client secret)
+      # - MICROSOFT_CLIENT_ID (Microsoft Graph app client ID)
+      # - MICROSOFT_CLIENT_SECRET (Microsoft Graph app client secret)
+      # - OUTLOOK_CLIENT_ID (Outlook calendar app client ID)
+      # - OUTLOOK_CLIENT_SECRET (Outlook calendar app client secret)
+      # - TEAMS_CLIENT_ID (Microsoft Teams app client ID)
+      # - TEAMS_CLIENT_SECRET (Microsoft Teams app client secret)
+      # - CRON_SECRET (Secret for scheduled maintenance endpoints)
     
     # Health check configuration
     healthCheckPath: /api/health

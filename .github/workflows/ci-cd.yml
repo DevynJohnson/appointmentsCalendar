@@ -70,6 +70,17 @@ jobs:
         DIRECT_URL: "postgresql://user:pass@localhost:5432/test"
         JWT_SECRET: "test-jwt-secret-for-build"
         NEXTAUTH_SECRET: "test-nextauth-secret-for-build"
+        MAILEROO_API_KEY: "test-maileroo-key-for-build"
+        MAILEROO_FROM_EMAIL: "test@example.com"
+        GOOGLE_CLIENT_ID: "test-google-client-id"
+        GOOGLE_CLIENT_SECRET: "test-google-client-secret"
+        MICROSOFT_CLIENT_ID: "test-microsoft-client-id"
+        MICROSOFT_CLIENT_SECRET: "test-microsoft-client-secret"
+        OUTLOOK_CLIENT_ID: "test-outlook-client-id"
+        OUTLOOK_CLIENT_SECRET: "test-outlook-client-secret"
+        TEAMS_CLIENT_ID: "test-teams-client-id"
+        TEAMS_CLIENT_SECRET: "test-teams-client-secret"
+        CRON_SECRET: "test-cron-secret-for-build"
         NODE_ENV: "production"
     
     # Security audit
