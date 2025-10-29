@@ -198,37 +198,6 @@ export default function ProviderDashboard() {
     }
   };
 
-  const handleFixConnections = async () => {
-    try {
-      const token = localStorage.getItem('providerToken');
-      const response = await fetch('/api/provider/calendar/fix-connections', {
-        method: 'POST',
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-      });
-
-      const data = await response.json();
-      console.log('Fix connections API response:', data);
-
-      if (!response.ok) {
-        throw new Error('Failed to fix calendar connections');
-      }
-
-      // Reload all data after fixing connections
-      await Promise.all([
-        loadDashboardData(),
-        loadDefaultCalendar()
-      ]);
-      
-      alert('Calendar connections fixed! All calendars should now be available for booking settings.');
-    } catch (err) {
-      console.error('Fix connections error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fix calendar connections');
-    }
-  };
-
 
 
   if (loading) {
@@ -323,7 +292,7 @@ export default function ProviderDashboard() {
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Default Calendar for New Bookings</h2>
             <p className="text-sm text-gray-600 mt-1">
-              Choose where new booking events will be written. Only calendars with sync enabled are shown here. If you do not see a calendar that you have connected, please make sure it has &quot;Sync Events&quot; enabled on the Manage Calendar page. If it still does not appear, try using the &quot;Fix Multi-Calendar Support&quot; button below.
+              Choose where new booking events will be written. Only calendars with sync enabled are shown here. If you do not see a calendar that you have connected, please make sure it has &quot;Sync Events&quot; enabled on the Manage Calendar page.
             </p>
           </div>
           <div className="px-6 py-4">
@@ -421,21 +390,12 @@ export default function ProviderDashboard() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-medium text-gray-900">Calendar Connections</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleFixConnections}
-                    className="inline-flex items-center px-3 py-1.5 border border-orange-600 text-xs font-medium rounded-md text-orange-600 bg-white hover:bg-orange-50 transition-colors"
-                    title="Fix calendar connections to enable multi-calendar features"
-                  >
-                    🔧 Fix Multi-Calendar Support
-                  </button>
-                  <button
-                    onClick={() => router.push('/provider/calendar/connect')}
-                    className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                  >
-                    + Add New
-                  </button>
-                </div>
+                <button
+                  onClick={() => router.push('/provider/calendar/connect')}
+                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                >
+                  + Add New
+                </button>
               </div>
             </div>
             <div className="px-6 py-4">
