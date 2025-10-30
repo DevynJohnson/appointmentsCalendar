@@ -2,7 +2,6 @@
 
 // React hook for easy Sentry integration in components
 import { useEffect } from 'react';
-import { setSentryUser, clearSentryUser, trackEvent, captureMessage, logger } from '@/lib/sentry-utils';
 import * as Sentry from '@sentry/nextjs';
 
 export interface SentryUser {
@@ -15,9 +14,9 @@ export interface SentryUser {
 export function useSentry() {
   const setUser = (user: SentryUser | null) => {
     if (user) {
-      setSentryUser(user);
+      Sentry.setUser(user);
     } else {
-      clearSentryUser();
+      Sentry.setUser(null);
     }
   };
 
@@ -26,7 +25,11 @@ export function useSentry() {
     level: 'info' | 'warning' | 'error' = 'info',
     extra?: Record<string, unknown>
   ) => {
-    trackEvent(message, level, extra);
+    Sentry.addBreadcrumb({
+      message,
+      level: level as Sentry.SeverityLevel,
+      data: extra,
+    });
   };
 
   const logMessage = (
@@ -34,7 +37,10 @@ export function useSentry() {
     level: 'info' | 'warning' | 'error' = 'info',
     context?: Record<string, unknown>
   ) => {
-    captureMessage(message, level, context);
+    Sentry.captureMessage(message, level as Sentry.SeverityLevel);
+    if (context) {
+      Sentry.setContext('additionalInfo', context);
+    }
   };
 
   // Create performance spans for UI interactions
@@ -65,7 +71,7 @@ export function useSentry() {
               span.setAttribute("action.duration_ms", duration);
               span.setAttribute("action.status", "success");
               
-              logger.debug(logger.fmt`User action completed: ${actionName}`, {
+              console.debug(`User action completed: ${actionName}`, {
                 duration,
                 ...attributes,
               });
@@ -77,7 +83,7 @@ export function useSentry() {
               span.setAttribute("action.status", "failed");
               span.setAttribute("error.name", error.name);
               
-              logger.error(logger.fmt`User action failed: ${actionName}`, {
+              console.error(`User action failed: ${actionName}`, {
                 duration,
                 error: error.message,
                 ...attributes,
@@ -107,7 +113,6 @@ export function useSentry() {
     logEvent,
     logMessage,
     trackUserAction,
-    logger, // Export logger for direct use
   };
 }
 
@@ -120,14 +125,14 @@ export function useSentryUser(user: SentryUser | null) {
     
     // Clear user on unmount
     return () => {
-      if (!user) clearSentryUser();
+      if (!user) Sentry.setUser(null);
     };
   }, [user, setUser]);
 }
 
 // Example usage in your components:
 //
-// const { setUser, logEvent, trackUserAction, logger } = useSentry();
+// const { setUser, logEvent, trackUserAction } = useSentry();
 //
 // // Set user context automatically
 // useSentryUser(currentUser);
@@ -139,7 +144,7 @@ export function useSentryUser(user: SentryUser | null) {
 //     { appointmentType: 'consultation', userRole: 'premium' },
 //     async () => {
 //       const appointment = await createAppointment(appointmentData);
-//       logger.info('Appointment created successfully', { 
+//       console.info('Appointment created successfully', { 
 //         appointmentId: appointment.id,
 //         type: appointmentData.type 
 //       });
