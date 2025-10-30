@@ -88,6 +88,8 @@ jobs:
         TEAMS_CLIENT_SECRET: "test-teams-client-secret"
         CRON_SECRET: "test-cron-secret-for-build"
         NODE_ENV: "production"
+        # Sentry auth token for source map uploads
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     
     # Security audit
     - name: Security audit
