@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { assignmentId: string } }
+  context: { params: Promise<{ assignmentId: string }> }
 ) {
   try {
     const authResult = extractAndVerifyJWT(request.headers.get('authorization'));
@@ -17,7 +17,7 @@ export async function DELETE(
       );
     }
 
-    const { assignmentId } = params;
+    const { assignmentId } = await context.params;
 
     // Verify the assignment belongs to this provider
     const assignment = await prisma.templateAssignment.findFirst({
@@ -52,7 +52,7 @@ export async function DELETE(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { assignmentId: string } }
+  context: { params: Promise<{ assignmentId: string }> }
 ) {
   try {
     const authResult = extractAndVerifyJWT(request.headers.get('authorization'));
@@ -64,7 +64,7 @@ export async function PUT(
       );
     }
 
-    const { assignmentId } = params;
+    const { assignmentId } = await context.params;
     const { startDate, endDate } = await request.json();
 
     // Verify the assignment belongs to this provider
