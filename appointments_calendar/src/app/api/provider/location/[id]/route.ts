@@ -2,16 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
 import { prisma } from '@/lib/db';
 
-
-interface LocationParams {
-  params: Promise<{
-    id: string;
-  }>;
-}
-
 export async function PUT(
   request: NextRequest,
-  { params }: LocationParams
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -24,7 +17,7 @@ export async function PUT(
 
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
-    const { id } = await params;
+    const { id } = await context.params;
 
     const { city, stateProvince, country, description, startDate, endDate, isDefault } = await request.json();
 
@@ -97,7 +90,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: LocationParams
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const authHeader = request.headers.get('authorization');
@@ -110,7 +103,7 @@ export async function DELETE(
 
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
-    const { id } = await params;
+    const { id } = await context.params;
 
     await prisma.providerLocation.delete({
       where: { 

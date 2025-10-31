@@ -3,13 +3,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { AvailabilityService } from '@/lib/availability-service';
 import { extractAndVerifyJWT } from '@/lib/jwt-utils';
 
-interface RouteParams {
-  params: {
-    templateId: string;
-  };
-}
-
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
+export async function DELETE(
+  request: NextRequest, 
+  context: { params: Promise<{ templateId: string }> }
+) {
   try {
     const authResult = extractAndVerifyJWT(request.headers.get('authorization'));
     
@@ -20,7 +17,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    await AvailabilityService.deleteTemplate(params.templateId);
+    const { templateId } = await context.params;
+    await AvailabilityService.deleteTemplate(templateId);
     
     return NextResponse.json({ message: 'Template deleted successfully' });
   } catch (error) {
@@ -33,7 +31,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(
+  request: NextRequest, 
+  context: { params: Promise<{ templateId: string }> }
+) {
   try {
     const authResult = extractAndVerifyJWT(request.headers.get('authorization'));
     
@@ -44,16 +45,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const { templateId } = await context.params;
     const { action, ...data } = await request.json();
 
     switch (action) {
       case 'setDefault':
-        await AvailabilityService.setDefaultTemplate(params.templateId);
+        await AvailabilityService.setDefaultTemplate(templateId);
         return NextResponse.json({ message: 'Template set as default' });
       
       case 'assign':
         await AvailabilityService.assignTemplate(
-          params.templateId,
+          templateId,
           new Date(data.startDate),
           data.endDate ? new Date(data.endDate) : undefined
         );
