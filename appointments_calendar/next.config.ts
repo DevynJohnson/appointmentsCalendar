@@ -8,7 +8,14 @@ const nextConfig: NextConfig = {
   
   // Image optimization
   images: {
-    domains: ['www.zone-meet.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'www.zone-meet.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
     formats: ['image/webp', 'image/avif'],
     minimumCacheTTL: 60,
   },

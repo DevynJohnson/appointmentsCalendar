@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { secureFetch } from '@/lib/csrf';
 
 interface CalendarConnection {
   id: string;
@@ -258,11 +259,10 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
     
     try {
       const token = localStorage.getItem('providerToken');
-      const response = await fetch(`/api/provider/calendar/sync/${connection.id}`, {
+      const response = await secureFetch(`/api/provider/calendar/sync/${connection.id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
       });
 

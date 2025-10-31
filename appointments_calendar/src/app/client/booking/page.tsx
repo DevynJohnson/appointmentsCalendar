@@ -4,6 +4,20 @@ import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Nav from '@/components/Nav';
 
+interface AvailabilityDay {
+  date: string;
+  dayOfWeek: string;
+  hasAvailability: boolean;
+  availableDurations: number[];
+  timeWindows: Array<{ start: string; end: string }>;
+  location?: {
+    city: string;
+    stateProvince: string;
+    country: string;
+    description?: string;
+  } | null;
+}
+
 interface Slot {
   id: string;
   eventId: string;
@@ -23,16 +37,6 @@ interface Slot {
   type?: string; // 'automatic' or 'manual'
 }
 
-interface ApiResponse {
-  success: boolean;
-  provider: {
-    id: string;
-    name: string;
-  };
-  totalSlots: number;
-  slots: Slot[];
-}
-
 export default function ClientBooking() {
   return (
     <Suspense fallback={<div className="p-6">Loading booking page...</div>}>
@@ -46,15 +50,26 @@ function ClientBookingContent() {
   const urlProviderId = searchParams.get('providerId');
   
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [availabilityPreview, setAvailabilityPreview] = useState<AvailabilityDay[]>([]);
   const [loading, setLoading] = useState(true);
-  const [providerInfo, setProviderInfo] = useState<{ id: string; name: string } | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [providerInfo, setProviderInfo] = useState<{ id: string; name: string; timezone?: string } | null>(null);
+  const [providerLocations, setProviderLocations] = useState<Array<{
+    id: string;
+    city: string;
+    stateProvince: string;
+    country: string;
+    description?: string;
+  }>>([]);
   const [filters, setFilters] = useState({
     providerId: urlProviderId || '',
-    serviceType: '',
+    selectedLocation: '',
     daysAhead: '14', // Default to 2 weeks for better UX
     mode: 'auto', // Use automatic slots - calendar events are treated as busy time
   });
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
+  const [selectedTimeByDate, setSelectedTimeByDate] = useState<Record<string, string>>({});
+  const [selectedDurationByDate, setSelectedDurationByDate] = useState<Record<string, number>>({});
   const [bookingForm, setBookingForm] = useState({
     firstName: '',
     lastName: '',
@@ -65,7 +80,7 @@ function ClientBookingContent() {
   });
   const [isBooking, setIsBooking] = useState(false);
 
-  const fetchOpenSlots = useCallback(async () => {
+  const fetchAvailabilityPreview = useCallback(async () => {
     if (!filters.providerId) {
       if (urlProviderId) {
         setFilters(prev => ({ ...prev, providerId: urlProviderId }));
@@ -79,38 +94,77 @@ function ClientBookingContent() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value);
-      });
+      params.append('providerId', filters.providerId);
+      params.append('daysAhead', filters.daysAhead);
 
-      const response = await fetch(`/api/client/open-slots?${params}`);
-      const data: ApiResponse = await response.json();
+      const response = await fetch(`/api/client/availability-preview?${params}`);
+      const data = await response.json();
       
       if (data.success) {
-        setSlots(data.slots);
+        setAvailabilityPreview(data.availability);
         setProviderInfo(data.provider);
+        
+        // Extract unique locations from availability data
+        const uniqueLocations = new Map();
+        data.availability.forEach((day: AvailabilityDay) => {
+          if (day.location) {
+            const locationKey = `${day.location.city}-${day.location.stateProvince}`;
+            if (!uniqueLocations.has(locationKey)) {
+              uniqueLocations.set(locationKey, {
+                id: locationKey,
+                city: day.location.city,
+                stateProvince: day.location.stateProvince,
+                country: day.location.country,
+                description: day.location.description,
+              });
+            }
+          }
+        });
+        setProviderLocations(Array.from(uniqueLocations.values()));
       } else {
-        console.error('Failed to fetch slots');
-        setSlots([]);
+        console.error('Failed to fetch availability preview');
+        setAvailabilityPreview([]);
       }
     } catch (error) {
-      console.error('Error fetching slots:', error);
-      setSlots([]);
+      console.error('Error fetching availability preview:', error);
+      setAvailabilityPreview([]);
     } finally {
       setLoading(false);
     }
   }, [filters, urlProviderId]);
 
-  useEffect(() => {
-    fetchOpenSlots();
-  }, [fetchOpenSlots]);
+  const fetchSlotsForDateAndDuration = async (date: string, duration: number) => {
+    setLoadingSlots(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('providerId', filters.providerId);
+      params.append('date', date);
+      params.append('duration', duration.toString());
 
-  const handleBookSlot = (slot: Slot) => {
-    setSelectedSlot(slot);
-    if (slot.availableServices.length === 1) {
-      setBookingForm(prev => ({ ...prev, serviceType: slot.availableServices[0] }));
+      console.log('Fetching slots for:', { providerId: filters.providerId, date, duration });
+
+      const response = await fetch(`/api/client/slots-on-demand?${params}`);
+      const data = await response.json();
+      
+      console.log('Slots API response:', data);
+      
+      if (data.success) {
+        return data.slots;
+      } else {
+        console.error('Failed to fetch slots:', data.error);
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+      return [];
+    } finally {
+      setLoadingSlots(false);
     }
   };
+
+  useEffect(() => {
+    fetchAvailabilityPreview();
+  }, [fetchAvailabilityPreview]);
 
   const handleBookingSubmit = async () => {
     if (!selectedSlot) return;
@@ -156,7 +210,7 @@ function ClientBookingContent() {
           serviceType: 'consultation',
           notes: '',
         });
-        fetchOpenSlots();
+        fetchAvailabilityPreview();
       } else {
         alert(`Booking failed: ${data.error}`);
       }
@@ -178,15 +232,92 @@ function ClientBookingContent() {
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    const date = new Date(dateString);
+    const dateTimeString = date.toLocaleString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      timeZone: providerInfo?.timezone || 'America/New_York',
+    });
+    
+    // Get timezone abbreviation
+    const timezoneAbbr = date.toLocaleString('en-US', {
+      timeZoneName: 'short',
+      timeZone: providerInfo?.timezone || 'America/New_York',
+    }).split(' ').pop();
+    
+    return `${dateTimeString} ${timezoneAbbr}`;
+  };
+
+  const formatTimeWithTimezone = (dateString: string, timezone?: string) => {
+    const date = new Date(dateString);
+    const timeString = date.toLocaleString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      timeZone: timezone || 'America/New_York',
+    });
+    
+    // Get timezone abbreviation
+    const timezoneAbbr = date.toLocaleString('en-US', {
+      timeZoneName: 'short',
+      timeZone: timezone || 'America/New_York',
+    }).split(' ').pop();
+    
+    return `${timeString} ${timezoneAbbr}`;
+  };
+
+  const handleDurationSelection = async (dateKey: string, duration: number) => {
+    console.log('Duration selected:', { dateKey, duration });
+    setSelectedDurationByDate(prev => ({ ...prev, [dateKey]: duration }));
+    // Reset time selection when duration changes
+    setSelectedTimeByDate(prev => ({ ...prev, [dateKey]: '' }));
+    
+    // Fetch slots for this date and duration
+    const slotsForSelection = await fetchSlotsForDateAndDuration(dateKey, duration);
+    console.log('Fetched slots:', slotsForSelection);
+    
+    // Store slots for this specific date/duration combination
+    setSlots(prev => {
+      // Remove any existing slots for this date/duration and add new ones
+      const filtered = prev.filter(slot => 
+        !(slot.startTime.split('T')[0] === dateKey && slot.duration === duration)
+      );
+      const newSlots = [...filtered, ...slotsForSelection];
+      console.log('Updated slots state:', newSlots);
+      return newSlots;
     });
   };
+
+  const handleTimeSelection = (dateKey: string, slotId: string) => {
+    setSelectedTimeByDate(prev => ({ ...prev, [dateKey]: slotId }));
+    const slot = slots.find(s => s.id === slotId);
+    if (slot) {
+      setSelectedSlot(slot);
+      if (slot.availableServices.length === 1) {
+        setBookingForm(prev => ({ ...prev, serviceType: slot.availableServices[0] }));
+      }
+    }
+  };
+
+  // Filter availability based on selected location
+  const filteredAvailability = availabilityPreview.filter(day => {
+    if (!day.hasAvailability) return false;
+    
+    // If no location is selected, show all days
+    if (!filters.selectedLocation) return true;
+    
+    // If a location is selected, only show days that match
+    if (day.location) {
+      const dayLocationKey = `${day.location.city}-${day.location.stateProvince}`;
+      return dayLocationKey === filters.selectedLocation;
+    }
+    
+    return false;
+  });
 
   return (
     <>
@@ -250,17 +381,19 @@ function ClientBookingContent() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Service Type</label>
+                <label className="block text-sm font-medium mb-1">Provider Location</label>
                 <select
-                  value={filters.serviceType}
-                  onChange={(e) => setFilters(prev => ({ ...prev, serviceType: e.target.value }))}
+                  value={filters.selectedLocation}
+                  onChange={(e) => setFilters(prev => ({ ...prev, selectedLocation: e.target.value }))}
                   className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">All Services</option>
-                  <option value="consultation">Consultation</option>
-                  <option value="maintenance">Maintenance</option>
-                  <option value="emergency">Emergency</option>
-                  <option value="follow-up">Follow-up</option>
+                  <option value="">All Locations</option>
+                  {providerLocations.map((location) => (
+                    <option key={location.id} value={location.id}>
+                      {location.city}, {location.stateProvince}
+                      {location.description && ` (${location.description})`}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -284,16 +417,24 @@ function ClientBookingContent() {
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               <p className="mt-2">Finding available appointments...</p>
             </div>
-          ) : slots.length === 0 ? (
+          ) : filteredAvailability.length === 0 ? (
             <div className="text-center py-8 bg-white rounded-lg border">
               <div className="mb-4">
                 <span className="text-4xl">📅</span>
               </div>
               <h3 className="text-lg font-semibold mb-2">No Available Appointments</h3>
               <p className="text-gray-800 mb-4">
-                No appointments are currently available for the selected time period.
+                No appointments are currently available for the selected {filters.selectedLocation ? 'location and ' : ''}time period.
               </p>
               <div className="space-y-2">
+                {filters.selectedLocation && (
+                  <button
+                    onClick={() => setFilters(prev => ({ ...prev, selectedLocation: '' }))}
+                    className="block mx-auto bg-green-100 text-green-700 px-4 py-2 rounded hover:bg-green-200 text-sm"
+                  >
+                    Show all locations
+                  </button>
+                )}
                 <button
                   onClick={() => setFilters(prev => ({ ...prev, daysAhead: '30' }))}
                   className="block mx-auto bg-blue-100 text-blue-700 px-4 py-2 rounded hover:bg-blue-200 text-sm"
@@ -312,56 +453,152 @@ function ClientBookingContent() {
             <div>
               <div className="mb-4 flex justify-between items-center">
                 <p className="text-sm text-gray-800">
-                  {slots.length} appointment{slots.length !== 1 ? 's' : ''} available
+                  {filteredAvailability.length} day{filteredAvailability.length !== 1 ? 's' : ''} with availability
+                  {filters.selectedLocation && (
+                    <span className="ml-2 text-gray-600">
+                      at {providerLocations.find(loc => loc.id === filters.selectedLocation)?.city}, {providerLocations.find(loc => loc.id === filters.selectedLocation)?.stateProvince}
+                    </span>
+                  )}
                 </p>
                 <div className="text-xs text-gray-700">
                   Showing next {filters.daysAhead} days
                 </div>
               </div>
               
-              <div className="grid gap-4">
-                {slots.map(slot => (
-                  <div key={slot.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg text-gray-900">
-                              {formatDateTime(slot.startTime)}
-                            </h3>
-                            <p className="text-sm text-gray-800">
-                              {slot.duration} minutes • {slot.eventTitle}
-                            </p>
-                            {slot.location.display && (
-                              <p className="text-sm text-gray-700 mt-1">
-                                📍 {slot.location.display}
-                              </p>
+              <div className="space-y-4">
+                {filteredAvailability.map((dayInfo) => {
+                  const dateKey = dayInfo.date;
+                  const selectedDuration = selectedDurationByDate[dateKey];
+                  const availableSlotsForDay = slots.filter(slot => {
+                    const slotDate = slot.startTime.split('T')[0];
+                    const durationMatch = !selectedDuration || slot.duration === selectedDuration;
+                    console.log('Filtering slot:', { 
+                      slotDate, 
+                      dateKey, 
+                      dateMatch: slotDate === dateKey,
+                      slotDuration: slot.duration,
+                      selectedDuration,
+                      durationMatch,
+                      overallMatch: slotDate === dateKey && durationMatch
+                    });
+                    return slotDate === dateKey && durationMatch;
+                  });
+                  
+                  console.log('Available slots for day:', { dateKey, selectedDuration, availableSlotsForDay });
+                  
+                  return (
+                    <div key={dateKey} className="bg-white border rounded-lg p-4">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg text-gray-900 mb-2">
+                            {dayInfo.dayOfWeek}, {(() => {
+                              // Parse the YYYY-MM-DD date string as local date to avoid timezone shifts
+                              const [year, month, day] = dayInfo.date.split('-').map(Number);
+                              const localDate = new Date(year, month - 1, day); // month is 0-indexed
+                              return localDate.toLocaleDateString('en-US', { 
+                                month: 'long', 
+                                day: 'numeric' 
+                              });
+                            })()}
+                            {dayInfo.location && (
+                              <span className="ml-3 text-sm font-normal text-gray-600">
+                                📍 {dayInfo.location.city}, {dayInfo.location.stateProvince}
+                                {dayInfo.location.description && (
+                                  <span className="ml-1">({dayInfo.location.description})</span>
+                                )}
+                              </span>
                             )}
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-green-600">
-                              Available
+                          </h3>
+                          
+                         
+                  
+                          <div className="space-y-4">
+                            {/* Duration Selection */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Appointment Duration:
+                              </label>
+                              <select
+                                value={selectedDuration || ''}
+                                onChange={(e) => handleDurationSelection(dateKey, parseInt(e.target.value))}
+                                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">Choose duration...</option>
+                                {dayInfo.availableDurations.map((duration: number) => (
+                                  <option key={duration} value={duration}>
+                                    {duration} minutes
+                                  </option>
+                                ))}
+                              </select>
                             </div>
-                            {slot.slotsRemaining > 1 && (
-                              <div className="text-xs text-gray-700">
-                                {slot.slotsRemaining} slots left
+
+                            {/* Time Selection - Show loading or slots */}
+                            {selectedDuration && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Select a time:
+                                </label>
+                                {loadingSlots ? (
+                                  <div className="flex items-center space-x-2">
+                                    <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                    <span className="text-sm text-gray-600">Loading available times...</span>
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={selectedTimeByDate[dateKey] || ''}
+                                    onChange={(e) => handleTimeSelection(dateKey, e.target.value)}
+                                    className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <option value="">Choose a time...</option>
+                                    {availableSlotsForDay.map(slot => (
+                                      <option key={slot.id} value={slot.id}>
+                                        {formatTimeWithTimezone(slot.startTime, providerInfo?.timezone)}
+                                        {slot.slotsRemaining > 1 && ` (${slot.slotsRemaining} slots available)`}
+                                      </option>
+                                    ))}
+                                  </select>
+                                )}
                               </div>
                             )}
                           </div>
+                          
+                          {selectedTimeByDate[dateKey] && (
+                            <div className="mt-4 p-3 bg-blue-50 rounded-md">
+                              {(() => {
+                                const selectedSlotForDay = availableSlotsForDay.find(s => s.id === selectedTimeByDate[dateKey]);
+                                return selectedSlotForDay ? (
+                                  <>
+                                    <p className="text-sm font-medium text-blue-900">
+                                      Selected: {formatTimeWithTimezone(selectedSlotForDay.startTime, providerInfo?.timezone)} - {formatTimeWithTimezone(selectedSlotForDay.endTime, providerInfo?.timezone)}
+                                    </p>
+                                    <p className="text-xs text-blue-700 mt-1">
+                                      {selectedSlotForDay.duration} minutes • {selectedSlotForDay.eventTitle}
+                                    </p>
+                                  </>
+                                ) : null;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="md:ml-4">
+                          <button
+                            onClick={() => {
+                              const selectedSlotId = selectedTimeByDate[dateKey];
+                              if (selectedSlotId) {
+                                handleTimeSelection(dateKey, selectedSlotId);
+                              }
+                            }}
+                            disabled={!selectedTimeByDate[dateKey]}
+                            className="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium disabled:bg-gray-300 disabled:cursor-not-allowed"
+                          >
+                            Book Selected Time
+                          </button>
                         </div>
                       </div>
-                      
-                      <div className="mt-3 md:mt-0 md:ml-4">
-                        <button
-                          onClick={() => handleBookSlot(slot)}
-                          className="w-full md:w-auto bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-medium"
-                        >
-                          Book Now
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

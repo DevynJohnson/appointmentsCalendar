@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { secureFetch } from '@/lib/csrf';
 
 interface CalendarConnection {
   id: string;
@@ -100,10 +101,9 @@ export default function TeamsCalendarManagement({ connection, onConnectionUpdate
     try {
       setError(null);
       const token = localStorage.getItem('providerToken');
-      const response = await fetch(`/api/provider/calendar/sync/${connection.id}`, {
+      const response = await secureFetch(`/api/provider/calendar/sync/${connection.id}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ 

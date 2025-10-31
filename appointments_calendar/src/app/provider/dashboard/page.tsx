@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { secureFetch } from '@/lib/csrf';
 
 interface CalendarConnection {
   id: string;
@@ -97,16 +98,17 @@ export default function ProviderDashboard() {
 
       // Trigger calendar sync in background when dashboard loads
       // This ensures provider sees fresh data when they check their dashboard
-      fetch('/api/provider/calendar/sync', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ forceSync: false }) // Only sync if needed
-      }).catch(error => {
+      try {
+        await secureFetch('/api/provider/calendar/sync', {
+          method: 'POST',
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({ forceSync: false }) // Only sync if needed
+        });
+      } catch (error) {
         console.warn('Background calendar sync failed on dashboard load:', error);
-      });
+      }
 
       // Load dashboard stats
       const statsResponse = await fetch('/api/provider/dashboard/stats', {
@@ -182,7 +184,7 @@ export default function ProviderDashboard() {
   const handleSyncCalendars = async () => {
     try {
       const token = localStorage.getItem('providerToken');
-      const response = await fetch('/api/provider/calendar/sync', {
+      const response = await secureFetch('/api/provider/calendar/sync', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -265,6 +267,18 @@ export default function ProviderDashboard() {
               <h3 className="text-sm font-medium text-gray-900">Quick Actions</h3>
               <div className="mt-2 space-y-1">
                 <button
+                  onClick={() => router.push('/provider/availability-templates')}
+                  className="text-sm text-blue-600 hover:text-blue-800 block font-medium"
+                >
+                  📋 Availability Templates
+                </button>
+                <button
+                  onClick={() => router.push('/provider/template-assignments')}
+                  className="text-sm text-green-600 hover:text-green-800 block"
+                >
+                  📅 Template Assignments
+                </button>
+                <button
                   onClick={() => router.push('/provider/calendar/connect')}
                   className="text-sm text-blue-600 hover:text-blue-800 block"
                 >
@@ -286,6 +300,51 @@ export default function ProviderDashboard() {
             </div>
           </div>
         )}
+
+        {/* Availability Management */}
+        <div className="mb-8 bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-medium text-gray-900">📅 Availability Management</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Create custom schedules and manage when customers can book appointments
+            </p>
+          </div>
+          <div className="px-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xl">📋</span>
+                  <h3 className="font-semibold text-gray-900">Availability Templates</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Create and manage your schedule templates with custom hours for each day
+                </p>
+                <button
+                  onClick={() => router.push('/provider/availability-templates')}
+                  className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Manage Templates
+                </button>
+              </div>
+              
+              <div className="border rounded-lg p-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-xl">📅</span>
+                  <h3 className="font-semibold text-gray-900">Template Assignments</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Assign templates to specific date ranges for seasonal schedules
+                </p>
+                <button
+                  onClick={() => router.push('/provider/template-assignments')}
+                  className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors text-sm font-medium"
+                >
+                  Manage Assignments
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Default Calendar Settings */}
         <div className="mt-8 bg-white rounded-lg shadow">

@@ -37,12 +37,14 @@ model Provider {
   defaultBookingDuration Int                  @default(60)
   bufferTime             Int                  @default(15)
   advanceBookingDays     Int                  @default(30)
+  allowedDurations       Int[]                @default([15, 30, 45, 60, 90]) // Available appointment durations in minutes
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
   bookings               Booking[]
   calendarConnections    CalendarConnection[]
   calendarEvents         CalendarEvent[]
   locations              ProviderLocation[]
+  availabilityTemplates  AvailabilityTemplate[]
 
   @@map("providers")
 }
@@ -192,4 +194,52 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
+}
+
+model AvailabilityTemplate {
+  id          String                @id @default(cuid())
+  providerId  String
+  name        String                // e.g., "Default Schedule", "Summer Hours", "Holiday Schedule"
+  timezone    String                @default("America/New_York") // IANA timezone identifier
+  isDefault   Boolean               @default(false)
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  provider    Provider              @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  timeSlots   AvailabilityTimeSlot[]
+  assignments TemplateAssignment[]
+
+  @@index([providerId, isDefault])
+  @@index([providerId, isActive])
+  @@map("availability_templates")
+}
+
+model AvailabilityTimeSlot {
+  id         String               @id @default(cuid())
+  templateId String
+  dayOfWeek  Int                  // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  startTime  String               // Format: "HH:MM" (24-hour format)
+  endTime    String               // Format: "HH:MM" (24-hour format)
+  isEnabled  Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, dayOfWeek])
+  @@index([dayOfWeek, startTime, endTime])
+  @@map("availability_time_slots")
+}
+
+model TemplateAssignment {
+  id         String               @id @default(cuid())
+  templateId String
+  startDate  DateTime             // Date from which this template applies
+  endDate    DateTime?            // Date until which this template applies (null = indefinite)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, startDate, endDate])
+  @@index([startDate, endDate])
+  @@map("template_assignments")
 }

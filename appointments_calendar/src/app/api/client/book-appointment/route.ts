@@ -83,9 +83,11 @@ export async function POST(request: NextRequest) {
       }
     } else if (slotType === 'automatic') {
       // Handle automatic slot booking - verify the slot is actually available
-      const isValid = await AvailabilityService.isSlotAvailable(
+      const appointmentTime = appointmentStart.toTimeString().slice(0, 5); // Get HH:MM format
+      const isValid = await AvailabilityService.isAvailable(
         providerId,
         appointmentStart,
+        appointmentTime,
         duration
       );
 

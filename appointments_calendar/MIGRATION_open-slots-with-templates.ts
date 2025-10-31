@@ -1,3 +1,4 @@
+// Updated open-slots endpoint that uses the new availability system
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { CalendarSyncService } from "@/lib/calendar-sync";
@@ -20,11 +21,9 @@ export async function GET(request: NextRequest) {
     maxBookingDate.setDate(syncStartDate.getDate() + daysAhead);
 
     // Trigger calendar sync for this provider before fetching slots
-    // This ensures we have the most up-to-date calendar data
     try {
       console.log(`🔄 Syncing calendar for provider ${providerId} for date range ${syncStartDate.toDateString()} to ${maxBookingDate.toDateString()}...`);
       
-      // Get active calendar connections for this provider
       const connections = await prisma.calendarConnection.findMany({
         where: {
           providerId: providerId,
@@ -33,7 +32,6 @@ export async function GET(request: NextRequest) {
         }
       });
 
-      // Use the optimized booking sync method with date range filtering
       const syncResult = await CalendarSyncService.syncForBookingLookup(providerId, {
         start: syncStartDate,
         end: maxBookingDate
@@ -42,7 +40,6 @@ export async function GET(request: NextRequest) {
 
       console.log(`✅ Completed ${successfulSyncs}/${connections.length} calendar syncs for provider ${providerId}`);
     } catch (syncError) {
-      // Don't fail the entire request if sync fails, just log it
       console.warn(`⚠️ Calendar sync failed for provider ${providerId}:`, syncError);
     }
 
@@ -68,7 +65,7 @@ export async function GET(request: NextRequest) {
     const maxDate = new Date();
     maxDate.setDate(now.getDate() + Math.min(daysAhead, provider.advanceBookingDays || 30));
 
-    // Fetch provider locations using the foreign key relationship
+    // Fetch provider locations
     const providerLocations = await prisma.providerLocation.findMany({
       where: {
         providerId: providerId,
@@ -92,20 +89,8 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    console.log(`📍 Found ${providerLocations.length} locations for provider ${providerId}:`, 
-      providerLocations.map(loc => ({
-        id: loc.id,
-        city: loc.city,
-        state: loc.stateProvince,
-        isDefault: loc.isDefault,
-        startDate: loc.startDate,
-        endDate: loc.endDate
-      }))
-    );
-
     // Helper function to find the appropriate location for a specific date
     const getLocationForDate = (appointmentDate: Date): string => {
-      // First, try to find a date-specific location (non-default)
       const dateSpecificLocation = providerLocations.find(location => 
         !location.isDefault &&
         appointmentDate >= location.startDate &&
@@ -116,13 +101,11 @@ export async function GET(request: NextRequest) {
         return formatLocationDisplay(dateSpecificLocation);
       }
 
-      // Fall back to default location
       const defaultLocation = providerLocations.find(location => location.isDefault);
       if (defaultLocation) {
         return formatLocationDisplay(defaultLocation);
       }
 
-      // Final fallback
       return "Contact provider for location details";
     };
 
@@ -148,29 +131,27 @@ export async function GET(request: NextRequest) {
       return locationString || "Contact provider for location details";
     };
 
-    // Generate available time slots using the optimized availability system
-    const allowedDurations = provider.allowedDurations || [15, 30, 45, 60, 90];
-    
-    // Use the optimized method to get all slots at once
-    const slotsData = await AvailabilityService.getAvailableSlotsOptimized(
-      providerId,
-      now,
-      maxDate,
-      allowedDurations
-    );
-
-    // Convert the optimized results to the expected slot format
+    // *** NEW: Use AvailabilityService instead of hardcoded business hours ***
     const slots = [];
-    for (const slotData of slotsData) {
-      const { date, duration, timeSlots } = slotData;
-      
-      for (const timeSlot of timeSlots) {
+    const slotDuration = provider.defaultBookingDuration;
+
+    // Generate slots for each day in the range using the new availability system
+    for (let date = new Date(now); date <= maxDate; date.setDate(date.getDate() + 1)) {
+      // Use the new availability service to get available time slots for this date
+      const availableTimeSlots = await AvailabilityService.getAvailableSlots(
+        providerId,
+        new Date(date), // Create new date object to avoid mutation
+        slotDuration
+      );
+
+      // Convert time slots to the expected slot format
+      for (const timeSlot of availableTimeSlots) {
         const slotStart = new Date(date);
         const [hours, minutes] = timeSlot.split(':').map(Number);
         slotStart.setHours(hours, minutes, 0, 0);
         
         const slotEnd = new Date(slotStart);
-        slotEnd.setMinutes(slotEnd.getMinutes() + duration);
+        slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
 
         // Skip if slot is in the past (additional safety check)
         if (slotStart <= now) continue;
@@ -178,11 +159,11 @@ export async function GET(request: NextRequest) {
         const locationDisplay = getLocationForDate(slotStart);
         
         slots.push({
-          id: `slot-${slotStart.getTime()}-${duration}`,
-          eventId: `auto-${slotStart.getTime()}-${duration}`,
+          id: `slot-${slotStart.getTime()}`,
+          eventId: `auto-${slotStart.getTime()}`,
           startTime: slotStart.toISOString(),
           endTime: slotEnd.toISOString(),
-          duration: duration,
+          duration: slotDuration,
           provider: {
             id: provider.id,
             name: provider.name,
@@ -196,7 +177,7 @@ export async function GET(request: NextRequest) {
           type: 'automatic',
         });
 
-        console.log(`🎯 Generated ${duration}min slot for ${slotStart.toISOString()} with location: ${locationDisplay}`);
+        console.log(`🎯 Generated slot for ${slotStart.toISOString()} with location: ${locationDisplay}`);
       }
     }
 

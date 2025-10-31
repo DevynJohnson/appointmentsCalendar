@@ -77,7 +77,7 @@ export default function ProviderDashboard() {
       <div className="max-w-4xl mx-auto py-8 px-4">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="mt-2">Loading your dashboard...</p>
+          <p className="mt-2">Loading...</p>
         </div>
       </div>
     );
@@ -87,47 +87,12 @@ export default function ProviderDashboard() {
     <div className="max-w-4xl mx-auto py-8 px-4">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Provider Dashboard</h1>
+        <h1 className="text-3xl font-bold mb-2">Share Your Booking Links</h1>
         {provider && (
           <p className="text-gray-800">
             Welcome back, {provider.name}{provider.company && ` from ${provider.company}`}
           </p>
         )}
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid gap-6 md:grid-cols-2 mb-8">
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h2 className="text-xl font-semibold mb-3 text-blue-600">📅 Manage Availability</h2>
-          <p className="text-gray-800 mb-4">Configure your calendar and booking settings</p>
-          <div className="space-y-2">
-            <a 
-              href="/admin/provider-settings"
-              className="block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-center"
-            >
-              Business Hours & Auto Availability
-            </a>
-            <a 
-              href="/admin/event-settings"
-              className="block bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 text-center"
-            >
-              Manual Event Settings
-            </a>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg border shadow-sm">
-          <h2 className="text-xl font-semibold mb-3 text-green-600">📊 View Bookings</h2>
-          <p className="text-gray-800 mb-4">See your upcoming appointments and booking history</p>
-          <div className="space-y-2">
-            <button className="block w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-              Upcoming Appointments
-            </button>
-            <button className="block w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-              Booking History
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Booking Links Section */}

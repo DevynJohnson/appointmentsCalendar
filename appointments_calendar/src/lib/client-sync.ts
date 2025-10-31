@@ -1,5 +1,6 @@
 // Client-side calendar sync utilities
 // Triggers syncs when calendar data is needed
+import { secureFetch } from './csrf';
 
 export class ClientSyncManager {
   private static readonly SYNC_CACHE_MS = 2 * 60 * 1000; // 2 minutes cache
@@ -71,11 +72,8 @@ export class ClientSyncManager {
   }
 
   private static async triggerProviderSync(providerId: string): Promise<void> {
-    const response = await fetch('/api/provider/calendar/sync', {
+    const response = await secureFetch('/api/provider/calendar/sync', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ 
         providerId,
         forceSync: false // Only sync connections that are due for sync
