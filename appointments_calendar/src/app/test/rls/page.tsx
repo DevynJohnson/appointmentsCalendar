@@ -13,7 +13,7 @@ export default function RLSTestPage() {
     setResults(null);
 
     try {
-      const response = await fetch('/api/test/rls?providerId=cmfnemvx60000m2ks96jgn75k');
+      const response = await fetch('/api/test/rls?providerId=test-provider-rls-123');
       const data = await response.json();
       
       if (!response.ok) {

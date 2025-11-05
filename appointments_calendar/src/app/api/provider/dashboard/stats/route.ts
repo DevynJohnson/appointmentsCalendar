@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
 import { withProviderContext } from '@/lib/db-rls';
-import { prisma } from '@/lib/db';
 
 
 export async function GET(request: NextRequest) {
@@ -18,22 +17,30 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    // Use RLS context for all database operations
-    const stats = await withProviderContext(provider.id, async () => {
-      // Get calendar connections stats - RLS will automatically filter by provider
+    console.log(`🔍 Fetching dashboard stats for provider: ${provider.id} (${provider.email})`);
+
+    // Use explicit filtering for all database operations to ensure data isolation
+    const stats = await withProviderContext(provider.id, async (tx) => {
+      // Get calendar connections stats - explicitly filter by provider
       const [totalConnections, activeConnections] = await Promise.all([
-        prisma.calendarConnection.count(),
-        prisma.calendarConnection.count({
-          where: { isActive: true },
+        tx.calendarConnection.count({
+          where: { providerId: provider.id }
+        }),
+        tx.calendarConnection.count({
+          where: { 
+            providerId: provider.id,
+            isActive: true 
+          },
         }),
       ]);
 
-      // Get upcoming events count (next 30 days)
+      // Get upcoming events count (next 30 days) - explicitly filter by provider
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
 
-      const upcomingEvents = await prisma.calendarEvent.count({
+      const upcomingEvents = await tx.calendarEvent.count({
         where: {
+          providerId: provider.id, // Explicit filtering for security
           startTime: {
             gte: new Date(),
             lte: thirtyDaysFromNow,
@@ -41,11 +48,16 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      // Get booking stats - RLS will automatically filter by provider
+      // Get booking stats - explicitly filter by provider
       const [totalBookings, pendingBookings] = await Promise.all([
-        prisma.booking.count(),
-        prisma.booking.count({
-          where: { status: 'PENDING' },
+        tx.booking.count({
+          where: { providerId: provider.id }
+        }),
+        tx.booking.count({
+          where: { 
+            providerId: provider.id,
+            status: 'PENDING' 
+          },
         }),
       ]);
 
@@ -57,6 +69,8 @@ export async function GET(request: NextRequest) {
         pendingBookings,
       };
     });
+
+    console.log(`📊 Dashboard stats for provider ${provider.id}:`, stats);
 
     return NextResponse.json(stats);
   } catch (error) {

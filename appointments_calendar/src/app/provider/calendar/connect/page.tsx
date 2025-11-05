@@ -38,7 +38,22 @@ export default function CalendarConnectPage() {
     appleId: '',
     appPassword: '',
   });
+  const [currentProviderEmail, setCurrentProviderEmail] = useState<string | null>(null);
   const router = useRouter();
+
+  // Clear state when provider changes
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('currentProviderEmail');
+    if (storedEmail !== currentProviderEmail) {
+      // Provider changed, clear all state
+      setAuthUrls(null);
+      setConnections([]);
+      setError('');
+      setShowAppleForm(false);
+      setAppleCredentials({ appleId: '', appPassword: '' });
+      setCurrentProviderEmail(storedEmail);
+    }
+  }, [currentProviderEmail]);
 
   const loadData = useCallback(async () => {
     try {
@@ -60,9 +75,14 @@ export default function CalendarConnectPage() {
       const authData = await authResponse.json();
       setAuthUrls(authData);
 
-      // Load existing connections
-      const connectionsResponse = await fetch('/api/provider/calendar/connections', {
-        headers: { Authorization: `Bearer ${token}` },
+      // Load existing connections with cache-busting
+      const timestamp = Date.now();
+      const connectionsResponse = await fetch(`/api/provider/calendar/connections?t=${timestamp}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
       });
 
       if (connectionsResponse.ok) {

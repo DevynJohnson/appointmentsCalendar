@@ -31,8 +31,21 @@ export default function ProviderLoginPage() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Store token in localStorage or cookie
+      // Clear any existing provider tokens to prevent conflicts
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('providerToken')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+
+      // Store token with provider-specific key to prevent conflicts
+      const providerKey = `providerToken_${email}`;
       localStorage.setItem('providerToken', data.token);
+      localStorage.setItem(providerKey, data.token);
+      localStorage.setItem('currentProviderEmail', email);
       
       // Redirect to dashboard
       router.push('/provider/dashboard');
@@ -50,7 +63,16 @@ export default function ProviderLoginPage() {
           Provider Login
         </h2>
         <p className="mt-2 text-center text-sm text-gray-800">
-          Sign in to manage your appointments and calendar
+          For service providers only. Sign in to manage your appointments and calendar.
+        </p>
+        <p className="mt-1 text-center text-xs text-gray-600">
+          Looking to book an appointment? {' '}
+          <a 
+            href="/client/search" 
+            className="font-medium text-blue-600 hover:text-blue-500"
+          >
+            Find providers here
+          </a>
         </p>
       </div>
 
@@ -128,8 +150,30 @@ export default function ProviderLoginPage() {
               </div>
               <div className="relative flex justify-center text-sm">
                 <span className="px-2 bg-white text-gray-700">
-                  Need help? Contact support
+                  New to our platform?
                 </span>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-3">
+                  Need to set up your account as a service provider?
+                </p>
+                <a
+                  href="/provider/register"
+                  className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Create An Account
+                </a>
+              </div>
+            </div>
+
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="text-center">
+                <p className="text-xs text-gray-500">
+                  Need help? Contact support at <a href="mailto:info@devynjohnsondigitalsolutions.com" className="font-medium text-blue-600 hover:text-blue-500">info@devynjohnsondigitalsolutions.com</a>
+                </p>
               </div>
             </div>
           </div>

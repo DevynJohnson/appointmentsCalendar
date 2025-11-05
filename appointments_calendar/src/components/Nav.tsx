@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
+import { secureFetch, clearCSRFToken } from '@/lib/csrf';
 
 interface NavProps {
   type?: 'provider' | 'public';
@@ -54,11 +55,27 @@ export default function Nav({ type = 'public' }: NavProps) {
           const userData = await response.json();
           setUser(userData.provider);
         } else {
+          // Clean up invalid tokens silently
+          const currentProviderEmail = localStorage.getItem('currentProviderEmail');
           localStorage.removeItem('providerToken');
+          localStorage.removeItem('currentProviderEmail');
+          if (currentProviderEmail) {
+            localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+          }
           setUser(null);
         }
       } catch (error) {
-        console.error('Auth check failed:', error);
+        // Only log unexpected errors, not auth failures
+        if (error instanceof Error && !error.message.includes('401')) {
+          console.error('Auth check failed:', error);
+        }
+        // Clean up tokens on any error
+        const currentProviderEmail = localStorage.getItem('currentProviderEmail');
+        localStorage.removeItem('providerToken');
+        localStorage.removeItem('currentProviderEmail');
+        if (currentProviderEmail) {
+          localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+        }
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -83,7 +100,46 @@ export default function Nav({ type = 'public' }: NavProps) {
       // Only providers have logout functionality
       // Clients use magic links and don't need to logout
       if (type === 'provider') {
+        const token = localStorage.getItem('providerToken');
+        
+        // Call server logout endpoint to invalidate token
+        if (token) {
+          try {
+            await secureFetch('/api/provider/auth/logout', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+          } catch (error) {
+            console.warn('Server logout failed:', error);
+            // Continue with client-side cleanup even if server call fails
+          }
+        }
+        
+        // Clear CSRF token cache
+        clearCSRFToken();
+        
+        // Clear all provider-related localStorage items
+        const currentProviderEmail = localStorage.getItem('currentProviderEmail');
         localStorage.removeItem('providerToken');
+        localStorage.removeItem('currentProviderEmail');
+        
+        // Remove provider-specific token if exists
+        if (currentProviderEmail) {
+          localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+        }
+        
+        // Clear any other cached data that might be provider-specific
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('provider') || key.includes('calendar') || key.includes('appointment'))) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        
         setUser(null);
         router.push('/');
       }

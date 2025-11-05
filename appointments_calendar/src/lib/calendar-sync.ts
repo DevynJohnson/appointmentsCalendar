@@ -355,44 +355,78 @@ export class CalendarSyncService {
 
       // Sync events from each selected calendar
       for (const calendarId of calendarsToSync) {
-        try {
-          console.log(`📡 Fetching events from Google Calendar: ${calendarId}`);
-          const response = await axios.get(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
-            {
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-              },
-              params: {
-                maxResults: 250,
-                singleEvents: true,
-                orderBy: 'startTime',
-                timeMin: syncRange.start.toISOString(),
-                timeMax: syncRange.end.toISOString(), // Key optimization: only get events in specified window
-              },
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount <= maxRetries) {
+          try {
+            console.log(`📡 Fetching events from Google Calendar: ${calendarId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
+            
+            const response = await axios.get(
+              `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                params: {
+                  maxResults: 250,
+                  singleEvents: true,
+                  orderBy: 'startTime',
+                  timeMin: syncRange.start.toISOString(),
+                  timeMax: syncRange.end.toISOString(), // Key optimization: only get events in specified window
+                },
+                timeout: 30000, // 30 second timeout
+              }
+            );
+
+            const events = response.data.items || [];
+            console.log(`📅 Found ${events.length} events in calendar ${calendarId}`);
+            
+            let calendarEventsProcessed = 0;
+
+            for (const event of events) {
+              try {
+                console.log(`📝 Processing Google event: ${event.summary || 'Untitled'} (${event.id}) from ${calendarId}`);
+                await this.processGoogleEvent(connection.providerId, event, calendarId, connection.id);
+                calendarEventsProcessed++;
+                totalEventsProcessed++;
+              } catch (eventError) {
+                console.error(`❌ Failed to process Google event ${event.id}:`, eventError);
+              }
             }
-          );
-
-          const events = response.data.items || [];
-          console.log(`📅 Found ${events.length} events in calendar ${calendarId}`);
-          
-          let calendarEventsProcessed = 0;
-
-          for (const event of events) {
-            try {
-              console.log(`📝 Processing Google event: ${event.summary || 'Untitled'} (${event.id}) from ${calendarId}`);
-              await this.processGoogleEvent(connection.providerId, event, calendarId, connection.id);
-              calendarEventsProcessed++;
-              totalEventsProcessed++;
-            } catch (eventError) {
-              console.error(`❌ Failed to process Google event ${event.id}:`, eventError);
+            
+            console.log(`✅ Processed ${calendarEventsProcessed} events from calendar ${calendarId}`);
+            break; // Success, exit retry loop
+            
+          } catch (calendarError: unknown) {
+            retryCount++;
+            
+            // Type guard for axios errors and network errors
+            const error = calendarError as { 
+              code?: string; 
+              message?: string; 
+              response?: { status?: number } 
+            };
+            
+            // Check if this is a network/connection error that we should retry
+            const isRetryableError = 
+              error.code === 'ECONNRESET' ||
+              error.code === 'ENOTFOUND' ||
+              error.code === 'ETIMEDOUT' ||
+              error.code === 'ECONNREFUSED' ||
+              (error.response?.status && error.response.status >= 500 && error.response.status < 600) ||
+              error.response?.status === 429; // Rate limit
+            
+            if (isRetryableError && retryCount <= maxRetries) {
+              const delayMs = Math.min(1000 * Math.pow(2, retryCount - 1), 10000); // Exponential backoff, max 10s
+              console.warn(`⚠️ Retryable error for calendar ${calendarId}, retrying in ${delayMs}ms:`, error.message || String(calendarError));
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              continue;
+            } else {
+              console.error(`❌ Failed to sync calendar ${calendarId} after ${retryCount} attempts:`, error.message || String(calendarError));
+              break; // Exit retry loop
             }
           }
-          
-          console.log(`✅ Processed ${calendarEventsProcessed} events from calendar ${calendarId}`);
-          
-        } catch (calendarError) {
-          console.error(`❌ Failed to sync calendar ${calendarId}:`, calendarError);
         }
       }
 

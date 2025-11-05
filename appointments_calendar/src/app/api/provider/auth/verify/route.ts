@@ -27,7 +27,12 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Token verification error:', error);
+    // Only log warning for invalid/expired tokens to reduce noise in dev logs
+    if (error instanceof Error && error.message.includes('Invalid or expired token')) {
+      console.warn('Token verification failed - token may be expired or invalid');
+    } else {
+      console.error('Unexpected token verification error:', error);
+    }
     return NextResponse.json({ error: 'Token verification failed' }, { status: 401 });
   }
 }

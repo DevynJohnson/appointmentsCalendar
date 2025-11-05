@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withProviderContext, withUserContext } from '@/lib/db-rls';
+import { withUserContext } from '@/lib/db-rls';
 import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -18,20 +18,34 @@ export async function GET(request: NextRequest) {
 
     if (testProviderId) {
       // Test provider context - should only see their own data
-      results.providerTest = await withProviderContext(testProviderId, async () => {
+      results.providerTest = await prisma.$transaction(async (tx) => {
+        // Set provider context within the transaction
+        await tx.$executeRaw`SELECT set_config('app.current_provider_id', ${testProviderId}, true)`;
+        
+        // Check if session variable is set correctly
+        const sessionCheck = await tx.$queryRaw`SELECT current_setting('app.current_provider_id', false) as provider_id`;
+        
         const [connections, events, bookings] = await Promise.all([
-          prisma.calendarConnection.count(),
-          prisma.calendarEvent.count(),
-          prisma.booking.count()
+          tx.calendarConnection.count(),
+          tx.calendarEvent.count(),
+          tx.booking.count()
         ]);
-        return { connections, events, bookings };
+        
+        return { 
+          connections, 
+          events, 
+          bookings,
+          sessionVariable: sessionCheck
+        };
       });
 
-      // Test without context - should see everything (admin view)
+      // Test without context - should see everything (admin view) 
+      const sessionCheckAdmin = await prisma.$queryRaw`SELECT current_setting('app.current_provider_id', true) as provider_id`;
       results.adminTest = {
         totalConnections: await prisma.calendarConnection.count(),
         totalEvents: await prisma.calendarEvent.count(),
-        totalBookings: await prisma.booking.count()
+        totalBookings: await prisma.booking.count(),
+        sessionVariable: sessionCheckAdmin
       };
     }
 

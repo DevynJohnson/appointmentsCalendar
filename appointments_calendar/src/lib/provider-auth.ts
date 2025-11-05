@@ -122,7 +122,9 @@ export class ProviderAuthService {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { passwordHash: _, ...providerWithoutPassword } = provider;
       return providerWithoutPassword;
-    } catch {
+    } catch (error) {
+      // Log the specific error for debugging but don't expose details to client
+      console.warn('Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
       throw new Error('Invalid or expired token');
     }
   }

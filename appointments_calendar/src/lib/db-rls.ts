@@ -15,6 +15,9 @@ if (process.env.NODE_ENV === 'development') {
   globalThis.__prisma = prisma;
 }
 
+// Type for Prisma transaction client
+type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
+
 /**
  * Set the current provider context for RLS
  */
@@ -39,17 +42,19 @@ export async function clearRLSContext() {
 
 /**
  * Execute a function with provider context
+ * The function receives the transaction client as its first parameter
  */
 export async function withProviderContext<T>(
   providerId: string, 
-  fn: () => Promise<T>
+  fn: (tx: PrismaTransaction) => Promise<T>
 ): Promise<T> {
-  await setProviderContext(providerId);
-  try {
-    return await fn();
-  } finally {
-    await clearRLSContext();
-  }
+  return await prisma.$transaction(async (tx) => {
+    // Set provider context within the transaction
+    await tx.$executeRaw`SELECT set_config('app.current_provider_id', ${providerId}, true)`;
+    
+    // Execute the function with the transaction client
+    return await fn(tx);
+  });
 }
 
 /**

@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
 import { withProviderContext } from '@/lib/db-rls';
-import { prisma } from '@/lib/db';
 
 
 export async function GET(request: NextRequest) {
@@ -18,23 +17,26 @@ export async function GET(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    // Use RLS context - automatically filters to only this provider's events
-    const events = await withProviderContext(provider.id, async () => {
-      return await prisma.calendarEvent.findMany({
-        where: {
-          startTime: {
-            gte: new Date(),
+    console.log(`🔍 Fetching calendar events for provider: ${provider.id} (${provider.email})`);
+
+        // Explicitly filter by provider ID to ensure data isolation
+    const events = await withProviderContext(provider.id, async (tx) => {
+      return await tx.calendarEvent.findMany({
+        where: { providerId: provider.id }, // Explicit filtering for security
+        include: {
+          connection: {
+            select: {
+              platform: true,
+              email: true,
+              calendarName: true,
+            },
           },
         },
-        include: {
-          bookings: true,
-        },
-        orderBy: {
-          startTime: 'asc',
-        },
-        take: 50, // Limit to next 50 events
+        orderBy: { startTime: 'asc' },
       });
     });
+
+    console.log(`📅 Found ${events.length} calendar events for provider ${provider.id}`);
 
     // Transform events to include booking counts
     const eventsWithBookingCounts = events.map(event => ({
@@ -43,10 +45,10 @@ export async function GET(request: NextRequest) {
       startTime: event.startTime.toISOString(),
       endTime: event.endTime.toISOString(),
       location: event.location,
-      platform: event.platform,
+      platform: event.connection.platform,
       allowBookings: event.allowBookings,
       maxBookings: event.maxBookings,
-      currentBookings: event.bookings.length,
+      currentBookings: event.bookings?.length || 0,
     }));
 
     return NextResponse.json(eventsWithBookingCounts);

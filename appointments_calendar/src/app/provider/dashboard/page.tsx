@@ -62,7 +62,24 @@ export default function ProviderDashboard() {
   const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentProviderEmail, setCurrentProviderEmail] = useState<string | null>(null);
   const router = useRouter();
+
+  // Clear state when provider changes
+  useEffect(() => {
+    const storedEmail = localStorage.getItem('currentProviderEmail');
+    if (storedEmail !== currentProviderEmail) {
+      // Provider changed, clear all state
+      setStats(null);
+      setConnections([]);
+      setUpcomingEvents([]);
+      setDefaultCalendar(null);
+      setSelectedPlatform('');
+      setSelectedCalendarId('');
+      setError('');
+      setCurrentProviderEmail(storedEmail);
+    }
+  }, [currentProviderEmail]);
 
   const loadDefaultCalendar = useCallback(async () => {
     try {
@@ -91,7 +108,61 @@ export default function ProviderDashboard() {
   const loadDashboardData = useCallback(async () => {
     try {
       const token = localStorage.getItem('providerToken');
+      const currentProviderEmail = localStorage.getItem('currentProviderEmail');
+      
       if (!token) {
+        router.push('/provider/login');
+        return;
+      }
+
+      // Validate token matches current provider session
+      if (currentProviderEmail) {
+        const providerSpecificToken = localStorage.getItem(`providerToken_${currentProviderEmail}`);
+        if (providerSpecificToken && providerSpecificToken !== token) {
+          console.warn('Token mismatch detected - clearing tokens and redirecting to login');
+          localStorage.removeItem('providerToken');
+          localStorage.removeItem('currentProviderEmail');
+          localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+          router.push('/provider/login');
+          return;
+        }
+      }
+
+      // Verify token is still valid by checking with server
+      try {
+        const verifyResponse = await fetch('/api/provider/auth/verify', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!verifyResponse.ok) {
+          console.warn('Token verification failed - redirecting to login');
+          localStorage.removeItem('providerToken');
+          localStorage.removeItem('currentProviderEmail');
+          if (currentProviderEmail) {
+            localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+          }
+          router.push('/provider/login');
+          return;
+        }
+        
+        const verifyData = await verifyResponse.json();
+        
+        // Ensure token provider matches stored provider email
+        if (currentProviderEmail && verifyData.provider?.email !== currentProviderEmail) {
+          console.warn('Provider email mismatch - clearing tokens and redirecting to login');
+          localStorage.removeItem('providerToken');
+          localStorage.removeItem('currentProviderEmail');
+          localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+          router.push('/provider/login');
+          return;
+        }
+      } catch (verifyError) {
+        console.warn('Token verification error:', verifyError);
+        localStorage.removeItem('providerToken');
+        localStorage.removeItem('currentProviderEmail');
+        if (currentProviderEmail) {
+          localStorage.removeItem(`providerToken_${currentProviderEmail}`);
+        }
         router.push('/provider/login');
         return;
       }
@@ -110,19 +181,34 @@ export default function ProviderDashboard() {
         console.warn('Background calendar sync failed on dashboard load:', error);
       }
 
-      // Load dashboard stats
-      const statsResponse = await fetch('/api/provider/dashboard/stats', {
-        headers: { Authorization: `Bearer ${token}` },
+      // Generate timestamp for cache busting
+      const timestamp = Date.now();
+
+      // Load dashboard stats with cache-busting
+      const statsResponse = await fetch(`/api/provider/dashboard/stats?t=${timestamp}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
       });
 
-      // Load calendar connections
-      const connectionsResponse = await fetch('/api/provider/calendar/connections', {
-        headers: { Authorization: `Bearer ${token}` },
+      // Load calendar connections with cache-busting
+      const connectionsResponse = await fetch(`/api/provider/calendar/connections?t=${timestamp}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
       });
 
-      // Load upcoming events
-      const eventsResponse = await fetch('/api/provider/calendar/events', {
-        headers: { Authorization: `Bearer ${token}` },
+      // Load upcoming events with cache-busting
+      const eventsResponse = await fetch(`/api/provider/calendar/events?t=${timestamp}`, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        },
       });
 
       if (!statsResponse.ok || !connectionsResponse.ok || !eventsResponse.ok) {
@@ -270,13 +356,13 @@ export default function ProviderDashboard() {
                   onClick={() => router.push('/provider/availability-templates')}
                   className="text-sm text-blue-600 hover:text-blue-800 block font-medium"
                 >
-                  📋 Availability Templates
+                  Availability Templates
                 </button>
                 <button
                   onClick={() => router.push('/provider/template-assignments')}
-                  className="text-sm text-green-600 hover:text-green-800 block"
+                  className="text-sm text-blue-600 hover:text-green-800 block"
                 >
-                  📅 Template Assignments
+                  Template Assignments
                 </button>
                 <button
                   onClick={() => router.push('/provider/calendar/connect')}

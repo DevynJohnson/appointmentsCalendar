@@ -211,7 +211,7 @@ export default function PrivacyPolicy() {
               </p>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> dljohnson1313@gmail.com <br />
+                  <strong>Email:</strong> info@devynjohnsondigitalsolutions.com <br />
                 </p>
               </div>
             </section>
