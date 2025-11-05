@@ -6,8 +6,13 @@ async function performBackgroundMaintenance() {
   // Don't await this - let it run in background
   setTimeout(async () => {
     try {
-      const { TokenMaintenanceService } = await import('@/lib/token-maintenance');
-      await TokenMaintenanceService.refreshExpiringTokens();
+      const { TokenRefreshThrottleService } = await import('@/lib/token-refresh-throttle');
+      const results = await TokenRefreshThrottleService.refreshExpiringTokensThrottled();
+      
+      // Log summary for monitoring
+      if (results.checked > 0) {
+        console.log(`🔄 Background token maintenance: ${results.refreshed} refreshed, ${results.throttled} throttled, ${results.errors} errors out of ${results.checked} checked`);
+      }
     } catch (error) {
       console.warn('Background maintenance failed:', error);
     }
