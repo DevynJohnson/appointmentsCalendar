@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
               calendarName: true,
             },
           },
+          bookings: true, // Include bookings to count them
         },
         orderBy: { startTime: 'asc' },
       });
