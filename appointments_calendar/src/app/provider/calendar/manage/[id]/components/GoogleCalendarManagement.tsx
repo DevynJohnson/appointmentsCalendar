@@ -170,7 +170,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
         calendarSettings,
       };
 
-      const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+      const response = await secureFetch(`/api/provider/calendar/connections/${connection.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -217,7 +217,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
         calendarSettings: newCalendarSettings,
       };
 
-      const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+      const response = await secureFetch(`/api/provider/calendar/connections/${connection.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -340,7 +340,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
       confirmAction: async () => {
         try {
           const token = localStorage.getItem('providerToken');
-          const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+          const response = await secureFetch(`/api/provider/calendar/connections/${connection.id}`, {
             method: 'DELETE',
             headers: {
               Authorization: `Bearer ${token}`,
@@ -579,7 +579,7 @@ export default function GoogleCalendarManagement({ connection, onConnectionUpdat
                                           onConfirm: async () => {
                                             try {
                                               const token = localStorage.getItem('providerToken');
-                                              const response = await fetch(`/api/provider/calendar/cleanup-events`, {
+                                              const response = await secureFetch(`/api/provider/calendar/cleanup-events`, {
                                                 method: 'POST',
                                                 headers: {
                                                   'Content-Type': 'application/json',

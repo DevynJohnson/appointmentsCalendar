@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { secureFetch } from '@/lib/csrf';
 
 interface AuthUrls {
   outlook: string;
@@ -119,7 +120,7 @@ export default function CalendarConnectPage() {
     
     try {
       const token = localStorage.getItem('providerToken');
-      const response = await fetch('/api/provider/calendar/connect/apple', {
+      const response = await secureFetch('/api/provider/calendar/connect/apple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,7 +146,7 @@ export default function CalendarConnectPage() {
 
     try {
       const token = localStorage.getItem('providerToken');
-      const response = await fetch(`/api/provider/calendar/connections/${connectionId}`, {
+      const response = await secureFetch(`/api/provider/calendar/connections/${connectionId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,

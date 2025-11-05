@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { secureFetch } from '@/lib/csrf';
 
 interface Template {
   id: string;
@@ -74,7 +75,7 @@ export default function TemplateAssignmentsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch('/api/provider/availability/assignments', {
+      const response = await secureFetch('/api/provider/availability/assignments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,7 +108,7 @@ export default function TemplateAssignmentsPage() {
     if (!confirm('Are you sure you want to delete this assignment?')) return;
 
     try {
-      const response = await fetch(`/api/provider/availability/assignments/${assignmentId}`, {
+      const response = await secureFetch(`/api/provider/availability/assignments/${assignmentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('providerToken')}`

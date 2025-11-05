@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { secureFetch } from '@/lib/csrf';
 
 interface ProviderLocation {
   id: string;
@@ -127,7 +128,7 @@ export default function ManageLocationPage() {
         } : {})
       };
 
-      const response = await fetch(url, {
+      const response = await secureFetch(url, {
         method,
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -188,7 +189,7 @@ export default function ManageLocationPage() {
         return;
       }
 
-      const response = await fetch(`/api/provider/location/${id}`, {
+      const response = await secureFetch(`/api/provider/location/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

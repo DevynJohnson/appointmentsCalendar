@@ -141,7 +141,7 @@ export default function OutlookCalendarManagement({ connection, onConnectionUpda
         calendarSettings,
       };
 
-      const response = await fetch(`/api/provider/calendar/connections/${connection.id}`, {
+      const response = await secureFetch(`/api/provider/calendar/connections/${connection.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

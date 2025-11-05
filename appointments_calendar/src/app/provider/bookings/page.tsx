@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { secureFetch } from '@/lib/csrf';
 
 interface Customer {
   firstName: string | null;
@@ -100,7 +101,7 @@ export default function ProviderBookings() {
     setActionLoading(bookingId);
     try {
       const token = localStorage.getItem('providerToken');
-      const response = await fetch(`/api/provider/bookings/${bookingId}/${action}`, {
+      const response = await secureFetch(`/api/provider/bookings/${bookingId}/${action}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

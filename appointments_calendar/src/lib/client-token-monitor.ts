@@ -1,6 +1,8 @@
 // Client-side token health monitor
 // This runs in the browser and triggers maintenance when needed
 
+import { secureFetch } from '@/lib/csrf';
+
 export class ClientTokenMonitor {
   private static lastCheck = 0;
   private static CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes
@@ -21,7 +23,7 @@ export class ClientTokenMonitor {
 
     try {
       // Check token health
-      const response = await fetch('/api/admin/token-maintenance', {
+      const response = await secureFetch('/api/admin/token-maintenance', {
         method: 'GET'
       });
 
@@ -36,7 +38,7 @@ export class ClientTokenMonitor {
         console.log('🔄 Triggering background token maintenance from client');
         
         // Trigger maintenance (don't await - run in background)
-        fetch('/api/admin/token-maintenance', {
+        secureFetch('/api/admin/token-maintenance', {
           method: 'POST'
         }).catch(() => {
           // Fail silently

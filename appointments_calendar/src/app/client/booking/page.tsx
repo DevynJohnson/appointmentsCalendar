@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Nav from '@/components/Nav';
+import { secureFetch } from '@/lib/csrf';
 
 interface AvailabilityDay {
   date: string;
@@ -175,7 +176,7 @@ function ClientBookingContent() {
                         selectedSlot.eventId?.startsWith('auto-') ||
                         selectedSlot.type === 'automatic';
       
-      const response = await fetch('/api/client/book-appointment', {
+      const response = await secureFetch('/api/client/book-appointment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
