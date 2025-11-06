@@ -1,5 +1,6 @@
 // Availability management service
 import { prisma } from '@/lib/db';
+import { toZonedTime, fromZonedTime, format } from 'date-fns-tz';
 import { 
   AvailabilitySettings, 
   AvailabilityTemplateWithSlots, 
@@ -568,7 +569,8 @@ export class AvailabilityService {
           currentDate,
           daySlots,
           busyPeriods,
-          duration
+          duration,
+          template.timezone
         );
 
         if (availableSlots.length > 0) {
@@ -588,7 +590,7 @@ export class AvailabilityService {
    * Helper method to get template for a specific date from cached data
    */
   private static getTemplateForDateOptimized(
-    templates: Array<{ id: string; isDefault: boolean; timeSlots: AvailabilityTimeSlot[] }>,
+    templates: Array<{ id: string; isDefault: boolean; timezone: string; timeSlots: AvailabilityTimeSlot[] }>,
     assignments: Array<{ templateId: string; startDate: Date; endDate: Date | null }>,
     date: Date
   ) {
@@ -612,18 +614,22 @@ export class AvailabilityService {
     date: Date,
     daySlots: Array<{ startTime: string; endTime: string }>,
     busyPeriods: Array<{ start: Date; end: Date }>,
-    duration: number
+    duration: number,
+    timezone: string = 'America/New_York'
   ): string[] {
     const availableSlots: string[] = [];
 
     for (const slot of daySlots) {
-      const slotStart = new Date(date);
-      const [startHours, startMinutes] = slot.startTime.split(':').map(Number);
-      slotStart.setHours(startHours, startMinutes, 0, 0);
-
-      const slotEnd = new Date(date);
-      const [endHours, endMinutes] = slot.endTime.split(':').map(Number);
-      slotEnd.setHours(endHours, endMinutes, 0, 0);
+      // Create date strings in the provider's timezone, then convert to UTC for processing
+      const dateStr = format(toZonedTime(date, timezone), 'yyyy-MM-dd', { timeZone: timezone });
+      
+      // Parse the slot times in the provider's timezone
+      const slotStartLocal = new Date(`${dateStr}T${slot.startTime}:00`);
+      const slotEndLocal = new Date(`${dateStr}T${slot.endTime}:00`);
+      
+      // Convert to UTC for consistent processing with busy periods
+      const slotStart = fromZonedTime(slotStartLocal, timezone);
+      const slotEnd = fromZonedTime(slotEndLocal, timezone);
 
       // Generate time slots within this availability window
       for (let currentTime = new Date(slotStart); currentTime < slotEnd; currentTime.setMinutes(currentTime.getMinutes() + 15)) {
@@ -638,7 +644,9 @@ export class AvailabilityService {
           );
 
           if (!hasConflict) {
-            const timeString = currentTime.toTimeString().substring(0, 5);
+            // Convert back to provider timezone for display
+            const localTime = toZonedTime(currentTime, timezone);
+            const timeString = format(localTime, 'HH:mm', { timeZone: timezone });
             availableSlots.push(timeString);
           }
         }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { CalendarSyncService } from "@/lib/calendar-sync";
 import { AvailabilityService } from "@/lib/availability-service";
+import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
       console.warn(`⚠️ Calendar sync failed for provider ${providerId}:`, syncError);
     }
 
-    // Fetch provider details
+    // Fetch provider details including timezone from default template
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -56,12 +57,20 @@ export async function GET(request: NextRequest) {
         bufferTime: true,
         advanceBookingDays: true,
         allowedDurations: true,
+        availabilityTemplates: {
+          where: { isDefault: true, isActive: true },
+          select: { timezone: true },
+          take: 1
+        }
       },
     });
 
     if (!provider) {
       return NextResponse.json({ error: "Provider not found" }, { status: 404 });
     }
+
+    // Get the provider's timezone (fallback to Eastern if no template)
+    const providerTimezone = provider.availabilityTemplates[0]?.timezone || 'America/New_York';
 
     // Calculate date range
     const now = new Date();
@@ -165,9 +174,10 @@ export async function GET(request: NextRequest) {
       const { date, duration, timeSlots } = slotData;
       
       for (const timeSlot of timeSlots) {
-        const slotStart = new Date(date);
-        const [hours, minutes] = timeSlot.split(':').map(Number);
-        slotStart.setHours(hours, minutes, 0, 0);
+        // Create the slot time in the provider's timezone, then convert to UTC
+        const dateStr = date.toISOString().split('T')[0]; // Get YYYY-MM-DD
+        const slotStartLocal = new Date(`${dateStr}T${timeSlot}:00`);
+        const slotStart = fromZonedTime(slotStartLocal, providerTimezone);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
