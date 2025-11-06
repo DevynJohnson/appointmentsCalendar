@@ -14,39 +14,47 @@ export class AvailabilityService {
    * Create default availability template for a new provider
    */
   static async createDefaultTemplate(providerId: string): Promise<AvailabilityTemplateWithSlots> {
-    const template = await prisma.availabilityTemplate.create({
-      data: {
-        providerId,
-        name: DEFAULT_AVAILABILITY.templateName,
-        timezone: DEFAULT_AVAILABILITY.timezone,
-        isDefault: true,
-        isActive: true,
-        timeSlots: {
-          create: DEFAULT_AVAILABILITY.weeklySchedule
-            .filter(day => day.isEnabled)
-            .flatMap(day => 
-              day.timeSlots.map(slot => ({
-                dayOfWeek: day.dayOfWeek,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                isEnabled: slot.isEnabled,
-              }))
-            ),
-        },
-        assignments: {
-          create: {
-            startDate: new Date(),
-            endDate: null, // Indefinite
+    return await prisma.$transaction(async (tx) => {
+      // First, unset any existing defaults for this provider (safety check)
+      await tx.availabilityTemplate.updateMany({
+        where: { providerId },
+        data: { isDefault: false },
+      });
+
+      const template = await tx.availabilityTemplate.create({
+        data: {
+          providerId,
+          name: DEFAULT_AVAILABILITY.templateName,
+          timezone: DEFAULT_AVAILABILITY.timezone,
+          isDefault: true,
+          isActive: true,
+          timeSlots: {
+            create: DEFAULT_AVAILABILITY.weeklySchedule
+              .filter(day => day.isEnabled)
+              .flatMap(day => 
+                day.timeSlots.map(slot => ({
+                  dayOfWeek: day.dayOfWeek,
+                  startTime: slot.startTime,
+                  endTime: slot.endTime,
+                  isEnabled: slot.isEnabled,
+                }))
+              ),
+          },
+          assignments: {
+            create: {
+              startDate: new Date(),
+              endDate: null, // Indefinite
+            },
           },
         },
-      },
-      include: {
-        timeSlots: true,
-        assignments: true,
-      },
-    });
+        include: {
+          timeSlots: true,
+          assignments: true,
+        },
+      });
 
-    return template;
+      return template;
+    });
   }
 
   /**
@@ -113,40 +121,91 @@ export class AvailabilityService {
         }))
       );
 
-    if (settings.templateId) {
-      // Update existing template
-      const template = await prisma.availabilityTemplate.update({
-        where: { id: settings.templateId },
-        data: {
-          ...templateData,
-          timeSlots: {
-            deleteMany: {}, // Remove all existing slots
-            create: timeSlotData, // Create new ones
+    // If setting this template as default, we need to unset other defaults
+    if (settings.isDefault) {
+      return await prisma.$transaction(async (tx) => {
+        // First, unset all other defaults for this provider
+        await tx.availabilityTemplate.updateMany({
+          where: {
+            providerId,
+            ...(settings.templateId ? { id: { not: settings.templateId } } : {}),
           },
-        },
-        include: {
-          timeSlots: true,
-          assignments: true,
-        },
-      });
+          data: { isDefault: false },
+        });
 
-      return template;
+        if (settings.templateId) {
+          // Update existing template
+          const template = await tx.availabilityTemplate.update({
+            where: { id: settings.templateId },
+            data: {
+              ...templateData,
+              timeSlots: {
+                deleteMany: {}, // Remove all existing slots
+                create: timeSlotData, // Create new ones
+              },
+            },
+            include: {
+              timeSlots: true,
+              assignments: true,
+            },
+          });
+
+          return template;
+        } else {
+          // Create new template
+          const template = await tx.availabilityTemplate.create({
+            data: {
+              ...templateData,
+              timeSlots: {
+                create: timeSlotData,
+              },
+            },
+            include: {
+              timeSlots: true,
+              assignments: true,
+            },
+          });
+
+          return template;
+        }
+      });
     } else {
-      // Create new template
-      const template = await prisma.availabilityTemplate.create({
-        data: {
-          ...templateData,
-          timeSlots: {
-            create: timeSlotData,
+      // Not setting as default, proceed normally
+      if (settings.templateId) {
+        // Update existing template
+        const template = await prisma.availabilityTemplate.update({
+          where: { id: settings.templateId },
+          data: {
+            ...templateData,
+            timeSlots: {
+              deleteMany: {}, // Remove all existing slots
+              create: timeSlotData, // Create new ones
+            },
           },
-        },
-        include: {
-          timeSlots: true,
-          assignments: true,
-        },
-      });
+          include: {
+            timeSlots: true,
+            assignments: true,
+          },
+        });
 
-      return template;
+        return template;
+      } else {
+        // Create new template
+        const template = await prisma.availabilityTemplate.create({
+          data: {
+            ...templateData,
+            timeSlots: {
+              create: timeSlotData,
+            },
+          },
+          include: {
+            timeSlots: true,
+            assignments: true,
+          },
+        });
+
+        return template;
+      }
     }
   }
 
@@ -842,6 +901,57 @@ export class AvailabilityService {
       },
       orderBy: { startDate: 'desc' },
     });
+  }
+
+  /**
+   * Fix multiple default templates for a provider by keeping only the first one
+   * This is a utility method to clean up data inconsistencies
+   */
+  static async fixMultipleDefaults(providerId: string): Promise<void> {
+    const templates = await prisma.availabilityTemplate.findMany({
+      where: {
+        providerId,
+        isDefault: true,
+        isActive: true,
+      },
+      orderBy: [
+        { createdAt: 'asc' }, // Keep the oldest one as default
+      ],
+    });
+
+    if (templates.length > 1) {
+      // Keep the first template as default, unset the rest
+      const [, ...otherTemplates] = templates;
+      
+      await prisma.availabilityTemplate.updateMany({
+        where: {
+          id: { in: otherTemplates.map(t => t.id) },
+        },
+        data: { isDefault: false },
+      });
+
+      console.log(`Fixed ${otherTemplates.length} duplicate default templates for provider ${providerId}`);
+    }
+  }
+
+  /**
+   * Fix multiple defaults for all providers
+   * This is a utility method to clean up data inconsistencies across the entire system
+   */
+  static async fixAllMultipleDefaults(): Promise<void> {
+    const providersWithMultipleDefaults = await prisma.$queryRaw<Array<{ providerId: string; count: number }>>`
+      SELECT "providerId", COUNT(*) as count
+      FROM "availability_templates"
+      WHERE "isDefault" = true AND "isActive" = true
+      GROUP BY "providerId"
+      HAVING COUNT(*) > 1
+    `;
+
+    for (const provider of providersWithMultipleDefaults) {
+      await this.fixMultipleDefaults(provider.providerId);
+    }
+
+    console.log(`Fixed multiple defaults for ${providersWithMultipleDefaults.length} providers`);
   }
 
   // Helper methods
