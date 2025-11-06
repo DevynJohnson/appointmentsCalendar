@@ -50,7 +50,7 @@ model Provider {
 }
 
 model ProviderLocation {
-  id            String   @id @default(cuid())
+  id            String              @id @default(cuid())
   providerId    String
   city          String
   stateProvince String
@@ -58,17 +58,59 @@ model ProviderLocation {
   description   String?
   startDate     DateTime
   endDate       DateTime
-  isActive      Boolean  @default(true)
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  provider      Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  isActive      Boolean             @default(true)
+  isDefault     Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  schedules     LocationSchedule[]
 
   @@index([providerId])
   @@index([startDate, endDate])
   @@index([city, stateProvince, country])
   @@index([providerId, isDefault])
   @@map("provider_locations")
+}
+
+model LocationSchedule {
+  id              String              @id @default(cuid())
+  locationId      String
+  startDate       DateTime
+  endDate         DateTime?           // Null for ongoing/unlimited schedules
+  
+  // Recurring pattern options
+  isRecurring     Boolean             @default(false)
+  recurrenceType  RecurrenceType?
+  recurrenceInterval Int?             // Every X weeks/months/etc.
+  daysOfWeek      Int[]               @default([]) // 0=Sunday, 1=Monday, etc.
+  weekOfMonth     Int?                // For monthly patterns (1=first week, 2=second, etc.)
+  monthOfYear     Int?                // For yearly patterns (1=Jan, 2=Feb, etc.)
+  
+  // End conditions for recurring patterns
+  recurrenceEndDate DateTime?
+  occurrenceCount   Int?              // End after X occurrences
+  
+  isActive        Boolean             @default(true)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  location        ProviderLocation    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@index([locationId])
+  @@index([startDate, endDate])
+  @@index([isRecurring, recurrenceType])
+  @@map("location_schedules")
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
 }
 
 model CalendarConnection {

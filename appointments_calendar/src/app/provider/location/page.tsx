@@ -3,20 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { secureFetch } from '@/lib/csrf';
-
-interface ProviderLocation {
-  id: string;
-  city: string;
-  stateProvince: string;
-  country: string;
-  description?: string;
-  startDate: string;
-  endDate: string;
-  isActive: boolean;
-  isDefault: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+import LocationSchedules from '@/components/LocationSchedules';
+import { ProviderLocation, LocationSchedule } from '@/types/location';
 
 interface LocationFormData {
   city: string;
@@ -44,6 +32,10 @@ export default function ManageLocationPage() {
     isDefault: false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Schedule management state
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [locationSchedules, setLocationSchedules] = useState<{[key: string]: LocationSchedule[]}>({});
 
   const router = useRouter();
 
@@ -80,6 +72,107 @@ export default function ManageLocationPage() {
       setIsLoading(false);
     }
   }, [router]);
+
+  // Fetch schedules for a specific location
+  const fetchLocationSchedules = useCallback(async (locationId: string) => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      if (!token) return;
+
+      const response = await fetch(`/api/provider/location/${locationId}/schedules`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLocationSchedules(prev => ({
+          ...prev,
+          [locationId]: data.schedules || []
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+    }
+  }, []);
+
+  // Handle schedule addition
+  const handleScheduleAdd = useCallback(async (locationId: string, scheduleData: Omit<LocationSchedule, 'id' | 'locationId' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      if (!token) return;
+
+      const response = await secureFetch(`/api/provider/location/${locationId}/schedules`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scheduleData),
+      });
+
+      if (response.ok) {
+        await fetchLocationSchedules(locationId);
+      } else {
+        throw new Error('Failed to add schedule');
+      }
+    } catch (error) {
+      console.error('Error adding schedule:', error);
+      setError('Failed to add schedule');
+    }
+  }, [fetchLocationSchedules]);
+
+  // Handle schedule editing
+  const handleScheduleEdit = useCallback(async (locationId: string, scheduleId: string, scheduleData: Partial<LocationSchedule>) => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      if (!token) return;
+
+      const response = await secureFetch(`/api/provider/location/${locationId}/schedules/${scheduleId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(scheduleData),
+      });
+
+      if (response.ok) {
+        await fetchLocationSchedules(locationId);
+      } else {
+        throw new Error('Failed to update schedule');
+      }
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      setError('Failed to update schedule');
+    }
+  }, [fetchLocationSchedules]);
+
+  // Handle schedule deletion
+  const handleScheduleDelete = useCallback(async (locationId: string, scheduleId: string) => {
+    try {
+      const token = localStorage.getItem('providerToken');
+      if (!token) return;
+
+      const response = await secureFetch(`/api/provider/location/${locationId}/schedules/${scheduleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        await fetchLocationSchedules(locationId);
+      } else {
+        throw new Error('Failed to delete schedule');
+      }
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      setError('Failed to delete schedule');
+    }
+  }, [fetchLocationSchedules]);
 
   useEffect(() => {
     fetchLocations();
@@ -219,7 +312,7 @@ export default function ManageLocationPage() {
       const locationToUpdate = locations.find(loc => loc.id === id);
       if (!locationToUpdate) return;
 
-      const response = await fetch(`/api/provider/location/${id}`, {
+      const response = await secureFetch(`/api/provider/location/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -287,6 +380,71 @@ export default function ManageLocationPage() {
             >
               Add Location
             </button>
+          </div>
+
+          {/* User Education Section */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 mb-6 border border-blue-200">
+            <div className="flex items-start space-x-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">How Locations Work</h3>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">📍 Location Types:</h4>
+                    <ul className="list-disc list-inside ml-4 space-y-1">
+                      <li><strong>Default Location:</strong> Your permanent, primary location (home office, main clinic). No time restrictions.</li>
+                      <li><strong>Scheduled Locations:</strong> Temporary or time-specific locations with defined availability periods.</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">⭐ Default Location Benefits:</h4>
+                    <ul className="list-disc list-inside ml-4 space-y-1">
+                      <li>Always available for bookings (unless you have specific schedules)</li>
+                      <li>Used as fallback when other locations aren&apos;t available</li>
+                      <li>Appears first in client booking options</li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium text-gray-900 mb-1">📅 Location Specific Schedules:</h4>
+                    <ul className="list-disc list-inside ml-4 space-y-1">
+                      <li><strong>Simple Schedules:</strong> Let clients know when you will be at a particular location between specific start and end dates</li>
+                      <li><strong>Recurring Schedules:</strong> Complex, customizable patterns like &quot;Every Tuesday&quot; or &quot;First Monday of each month&quot;</li>
+                      <li><strong>Multiple Schedules:</strong> Add several different time periods to the same location</li>
+                    </ul>
+                    <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                      <p className="text-sm text-blue-800">
+                        <strong>Note:</strong> These schedules define <em>when</em> you&apos;ll be at a location. 
+                        For specific time-based availability (your working hours, availability windows for specific days of the week, etc.), customize your{' '}
+                        <a 
+                          href="/provider/availability-templates" 
+                          className="text-blue-600 hover:text-blue-800 underline font-medium"
+                        >
+                          availability templates
+                        </a>.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-white rounded-md p-3 border border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-2">💡 Example Use Cases:</h4>
+                    <div className="text-xs space-y-1">
+                      <p><strong>Consultant:</strong> Default office + client site every other week</p>
+                      <p><strong>Therapist:</strong> Main practice + satellite clinic on Wednesdays</p>
+                      <p><strong>Trainer:</strong> Home gym + community center weekends</p>
+                      <p><strong>Doctor:</strong> Main clinic + hospital rounds on specific days</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {error && (
@@ -369,13 +527,27 @@ export default function ManageLocationPage() {
                     />
                     <span className="text-sm font-medium text-gray-900">Set as default location</span>
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Default locations don&apos;t require specific timeframes and will be used as your primary location
-                  </p>
+                  <div className="text-xs text-gray-500 mt-1 ml-6">
+                    <p>Default locations don&apos;t require specific timeframes and will be used as your primary location.</p>
+                    <p className="mt-1"><strong>Tip:</strong> You can only have one default location. Setting this will update your current default.</p>
+                  </div>
                 </div>
 
                 {!formData.isDefault && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <>
+                    <div className="bg-yellow-50 rounded-md p-3 border border-yellow-200">
+                      <div className="flex items-start space-x-2">
+                        <svg className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <div className="text-xs text-yellow-800">
+                          <p className="font-medium">Scheduled Location</p>
+                          <p>This location requires specific start and end dates. You can add complex schedules after creating the location.</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-900 mb-1">
                         Start Date *
@@ -402,6 +574,7 @@ export default function ManageLocationPage() {
                       />
                     </div>
                   </div>
+                  </>
                 )}
 
                 <div className="flex gap-3 pt-4">
@@ -428,7 +601,36 @@ export default function ManageLocationPage() {
             <div className="text-center py-8">
               <div className="text-gray-400 text-5xl mb-4">📍</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No locations added yet</h3>
-              <p className="text-gray-600 mb-4">Add your first location to start accepting bookings</p>
+              <p className="text-gray-600 mb-6">Get started by adding your first location</p>
+              
+              {/* Quick Start Guide */}
+              <div className="bg-gray-50 rounded-lg p-6 mb-6 text-left max-w-2xl mx-auto">
+                <h4 className="font-semibold text-gray-900 mb-3">Quick Start Guide:</h4>
+                <div className="space-y-3 text-sm text-gray-700">
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 font-medium px-2 py-1 rounded text-xs">1</span>
+                    <div>
+                      <p className="font-medium">Add your primary location</p>
+                      <p className="text-gray-600">Start with your main office or workspace as a default location</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 font-medium px-2 py-1 rounded text-xs">2</span>
+                    <div>
+                      <p className="font-medium">Add scheduled locations (optional)</p>
+                      <p className="text-gray-600">Set up additional locations where you work on specific days or time periods</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <span className="bg-blue-100 text-blue-800 font-medium px-2 py-1 rounded text-xs">3</span>
+                    <div>
+                      <p className="font-medium">Configure schedules</p>
+                      <p className="text-gray-600">Use &quot;Manage Schedules&quot; to set up recurring patterns or multiple time periods for a specific location</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <button
                 onClick={() => setShowForm(true)}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 font-medium"
@@ -439,63 +641,89 @@ export default function ManageLocationPage() {
           ) : (
             <div className="space-y-4">
               {locations.map((location) => (
-                <div key={location.id} className={`border rounded-lg p-4 hover:bg-gray-50 ${
-                  location.isDefault ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
-                }`}>
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-gray-900">
-                          {location.city}, {location.stateProvince}, {location.country}
-                        </h3>
-                        {location.isDefault && (
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
-                            ⭐ Default
+                <div key={location.id} className="space-y-4">
+                  <div className={`border rounded-lg p-4 hover:bg-gray-50 ${
+                    location.isDefault ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
+                  }`}>
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-gray-900">
+                            {location.city}, {location.stateProvince}, {location.country}
+                          </h3>
+                          {location.isDefault && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
+                              ⭐ Default
+                            </span>
+                          )}
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            location.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {location.isActive ? 'Active' : 'Inactive'}
                           </span>
+                        </div>
+                        
+                        {location.description && (
+                          <p className="text-gray-600 text-sm mb-2">{location.description}</p>
                         )}
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          location.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                        }`}>
-                          {location.isActive ? 'Active' : 'Inactive'}
-                        </span>
+                        
+                        <div className="text-sm text-gray-500">
+                          {location.isDefault ? (
+                            <span>Permanent location</span>
+                          ) : (
+                            <span>📅 {new Date(location.startDate).toLocaleDateString()} - {new Date(location.endDate).toLocaleDateString()}</span>
+                          )}
+                        </div>
                       </div>
                       
-                      {location.description && (
-                        <p className="text-gray-600 text-sm mb-2">{location.description}</p>
-                      )}
-                      
-                      <div className="text-sm text-gray-500">
-                        {location.isDefault ? (
-                          <span>🏠 Permanent location</span>
-                        ) : (
-                          <span>📅 {new Date(location.startDate).toLocaleDateString()} - {new Date(location.endDate).toLocaleDateString()}</span>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-2 ml-4">
-                      {!location.isDefault && (
+                      <div className="flex gap-2 ml-4">
                         <button
-                          onClick={() => handleSetDefault(location.id)}
-                          className="text-orange-600 hover:text-orange-800 font-medium text-sm"
+                          onClick={() => {
+                            const isExpanded = selectedLocationId === location.id;
+                            setSelectedLocationId(isExpanded ? null : location.id);
+                            if (!isExpanded && !locationSchedules[location.id]) {
+                              fetchLocationSchedules(location.id);
+                            }
+                          }}
+                          className="text-purple-600 hover:text-purple-800 font-medium text-sm"
                         >
-                          Set Default
+                          {selectedLocationId === location.id ? 'Hide Schedules' : 'Manage Schedules'}
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleEdit(location)}
-                        className="text-blue-600 hover:text-blue-800 font-medium text-sm"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDelete(location.id)}
-                        className="text-red-600 hover:text-red-800 font-medium text-sm"
-                      >
-                        Delete
-                      </button>
+                        {!location.isDefault && (
+                          <button
+                            onClick={() => handleSetDefault(location.id)}
+                            className="text-orange-600 hover:text-orange-800 font-medium text-sm"
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleEdit(location)}
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(location.id)}
+                          className="text-red-600 hover:text-red-800 font-medium text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
+                  
+                  {/* Schedule Management Section */}
+                  {selectedLocationId === location.id && (
+                    <div className="ml-6 p-4 bg-gray-50 rounded-lg border-l-4 border-purple-200">
+                      <LocationSchedules
+                        schedules={locationSchedules[location.id] || []}
+                        onScheduleAdd={(scheduleData) => handleScheduleAdd(location.id, scheduleData)}
+                        onScheduleEdit={(scheduleId, scheduleData) => handleScheduleEdit(location.id, scheduleId, scheduleData)}
+                        onScheduleDelete={(scheduleId) => handleScheduleDelete(location.id, scheduleId)}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

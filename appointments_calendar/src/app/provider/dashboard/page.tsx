@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { secureFetch } from '@/lib/csrf';
+import QuickStartGuide from '@/components/QuickStartGuide';
 
 interface CalendarConnection {
   id: string;
@@ -324,6 +325,12 @@ export default function ProviderDashboard() {
           </div>
         )}
 
+        {/* Quick Start Guide */}
+        <QuickStartGuide 
+          connections={connections}
+          defaultCalendar={defaultCalendar}
+        />
+
         {/* Stats Overview */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -433,7 +440,7 @@ export default function ProviderDashboard() {
         </div>
 
         {/* Default Calendar Settings */}
-        <div className="mt-8 bg-white rounded-lg shadow">
+        <div id="default-calendar-section" className="mt-8 bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-medium text-gray-900">Default Calendar for New Bookings</h2>
             <p className="text-sm text-gray-600 mt-1">

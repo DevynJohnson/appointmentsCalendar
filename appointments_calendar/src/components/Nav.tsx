@@ -216,16 +216,24 @@ export default function Nav({ type = 'public' }: NavProps) {
 
           {/* User Menu - Fixed Right */}
           <div className="hidden md:flex">
-            <div className="flex items-center justify-center ml-6 border-l border-gray-200 pl-6 w-32">
+            <div className="flex items-center justify-center ml-6 border-l border-gray-200 pl-6 gap-3">
               {isLoading ? (
                 <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
               ) : user ? (
-                <button
-                  onClick={handleLogout}
-                  className="bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
-                >
-                  Logout
-                </button>
+                <>
+                  <Link
+                    href="/provider/settings"
+                    className="bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
+                  >
+                    Logout
+                  </button>
+                </>
               ) : (
                 <Link
                   href="/provider/login"
@@ -287,12 +295,21 @@ export default function Nav({ type = 'public' }: NavProps) {
                   {user.company && (
                     <div className="text-sm text-gray-500">{user.company}</div>
                   )}
-                  <button
-                    onClick={handleLogout}
-                    className="mt-3 w-full bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
-                  >
-                    Logout
-                  </button>
+                  <div className="mt-3 space-y-2">
+                    <Link
+                      href="/provider/settings"
+                      className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full bg-red-100 text-red-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-red-200 transition-colors"
+                    >
+                      Logout
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="px-4 py-3 space-y-3">
