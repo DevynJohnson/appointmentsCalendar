@@ -24,33 +24,33 @@ model User {
 }
 
 model Provider {
-  id                     String               @id @default(cuid())
+  id                     String                 @id @default(cuid())
   name                   String
-  email                  String               @unique
+  email                  String                 @unique
   phone                  String?
   passwordHash           String?
-  isActive               Boolean              @default(true)
+  isActive               Boolean                @default(true)
   company                String?
   title                  String?
   bio                    String?
   website                String?
-  defaultBookingDuration Int                  @default(60)
-  bufferTime             Int                  @default(15)
-  advanceBookingDays     Int                  @default(30)
-  allowedDurations       Int[]                @default([15, 30, 45, 60, 90]) // Available appointment durations in minutes
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
+  defaultBookingDuration Int                    @default(60)
+  bufferTime             Int                    @default(15)
+  advanceBookingDays     Int                    @default(30)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  allowedDurations       Int[]                  @default([15, 30, 45, 60, 90])
+  availabilityTemplates  AvailabilityTemplate[]
   bookings               Booking[]
   calendarConnections    CalendarConnection[]
   calendarEvents         CalendarEvent[]
   locations              ProviderLocation[]
-  availabilityTemplates  AvailabilityTemplate[]
 
   @@map("providers")
 }
 
 model ProviderLocation {
-  id            String              @id @default(cuid())
+  id            String             @id @default(cuid())
   providerId    String
   city          String
   stateProvince String
@@ -58,12 +58,12 @@ model ProviderLocation {
   description   String?
   startDate     DateTime
   endDate       DateTime
-  isActive      Boolean             @default(true)
-  isDefault     Boolean             @default(false)
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  isActive      Boolean            @default(true)
+  isDefault     Boolean            @default(false)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   schedules     LocationSchedule[]
+  provider      Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([providerId])
   @@index([startDate, endDate])
@@ -73,28 +73,22 @@ model ProviderLocation {
 }
 
 model LocationSchedule {
-  id              String              @id @default(cuid())
-  locationId      String
-  startDate       DateTime
-  endDate         DateTime?           // Null for ongoing/unlimited schedules
-  
-  // Recurring pattern options
-  isRecurring     Boolean             @default(false)
-  recurrenceType  RecurrenceType?
-  recurrenceInterval Int?             // Every X weeks/months/etc.
-  daysOfWeek      Int[]               @default([]) // 0=Sunday, 1=Monday, etc.
-  weekOfMonth     Int?                // For monthly patterns (1=first week, 2=second, etc.)
-  monthOfYear     Int?                // For yearly patterns (1=Jan, 2=Feb, etc.)
-  
-  // End conditions for recurring patterns
-  recurrenceEndDate DateTime?
-  occurrenceCount   Int?              // End after X occurrences
-  
-  isActive        Boolean             @default(true)
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
-  
-  location        ProviderLocation    @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  id                 String           @id @default(cuid())
+  locationId         String
+  startDate          DateTime
+  endDate            DateTime?
+  isRecurring        Boolean          @default(false)
+  recurrenceType     RecurrenceType?
+  recurrenceInterval Int?
+  daysOfWeek         Int[]            @default([])
+  weekOfMonth        Int?
+  monthOfYear        Int?
+  recurrenceEndDate  DateTime?
+  occurrenceCount    Int?
+  isActive           Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  location           ProviderLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
   @@index([locationId])
   @@index([startDate, endDate])
@@ -102,39 +96,28 @@ model LocationSchedule {
   @@map("location_schedules")
 }
 
-enum RecurrenceType {
-  DAILY
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
-  BIMONTHLY
-  QUARTERLY
-  YEARLY
-  CUSTOM
-}
-
 model CalendarConnection {
-  id                    String           @id @default(cuid())
-  providerId            String
-  platform              CalendarPlatform
-  email                 String
-  calendarId            String
-  calendarName          String?
-  accessToken           String
-  refreshToken          String?
-  tokenExpiry           DateTime?
-  isDefaultForBookings  Boolean          @default(false)
-  syncEvents            Boolean          @default(true)
-  allowBookings         Boolean          @default(true)
-  selectedCalendars     Json?            // Array of selected calendar IDs for multi-calendar platforms
-  calendarSettings      Json?            // Per-calendar settings for multi-calendar platforms
-  isActive              Boolean          @default(true)
-  lastSyncAt            DateTime?
-  syncFrequency         Int              @default(15)
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  provider              Provider         @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  events                CalendarEvent[]
+  id                   String           @id @default(cuid())
+  providerId           String
+  platform             CalendarPlatform
+  email                String
+  calendarId           String
+  calendarName         String?
+  accessToken          String
+  refreshToken         String?
+  tokenExpiry          DateTime?
+  isDefaultForBookings Boolean          @default(false)
+  syncEvents           Boolean          @default(true)
+  allowBookings        Boolean          @default(true)
+  selectedCalendars    Json?
+  calendarSettings     Json?
+  isActive             Boolean          @default(true)
+  lastSyncAt           DateTime?
+  syncFrequency        Int              @default(15)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  provider             Provider         @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  events               CalendarEvent[]
 
   @@unique([providerId, platform, calendarId])
   @@index([providerId, isDefaultForBookings])
@@ -215,6 +198,65 @@ model MagicLink {
   @@map("magic_links")
 }
 
+model AvailabilityTemplate {
+  id          String                 @id @default(cuid())
+  providerId  String
+  name        String
+  isDefault   Boolean                @default(false)
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  timezone    String                 @default("America/New_York")
+  provider    Provider               @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  timeSlots   AvailabilityTimeSlot[]
+  assignments TemplateAssignment[]
+
+  @@index([providerId, isDefault])
+  @@index([providerId, isActive])
+  @@map("availability_templates")
+}
+
+model AvailabilityTimeSlot {
+  id         String               @id @default(cuid())
+  templateId String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  isEnabled  Boolean              @default(true)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, dayOfWeek])
+  @@index([dayOfWeek, startTime, endTime])
+  @@map("availability_time_slots")
+}
+
+model TemplateAssignment {
+  id         String               @id @default(cuid())
+  templateId String
+  startDate  DateTime
+  endDate    DateTime?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([templateId, startDate, endDate])
+  @@index([startDate, endDate])
+  @@map("template_assignments")
+}
+
+enum RecurrenceType {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
 enum CalendarPlatform {
   OUTLOOK
   GOOGLE
@@ -236,52 +278,4 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
-}
-
-model AvailabilityTemplate {
-  id          String                @id @default(cuid())
-  providerId  String
-  name        String                // e.g., "Default Schedule", "Summer Hours", "Holiday Schedule"
-  timezone    String                @default("America/New_York") // IANA timezone identifier
-  isDefault   Boolean               @default(false)
-  isActive    Boolean               @default(true)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  provider    Provider              @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  timeSlots   AvailabilityTimeSlot[]
-  assignments TemplateAssignment[]
-
-  @@index([providerId, isDefault])
-  @@index([providerId, isActive])
-  @@map("availability_templates")
-}
-
-model AvailabilityTimeSlot {
-  id         String               @id @default(cuid())
-  templateId String
-  dayOfWeek  Int                  // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-  startTime  String               // Format: "HH:MM" (24-hour format)
-  endTime    String               // Format: "HH:MM" (24-hour format)
-  isEnabled  Boolean              @default(true)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId, dayOfWeek])
-  @@index([dayOfWeek, startTime, endTime])
-  @@map("availability_time_slots")
-}
-
-model TemplateAssignment {
-  id         String               @id @default(cuid())
-  templateId String
-  startDate  DateTime             // Date from which this template applies
-  endDate    DateTime?            // Date until which this template applies (null = indefinite)
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-  template   AvailabilityTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-
-  @@index([templateId, startDate, endDate])
-  @@index([startDate, endDate])
-  @@map("template_assignments")
 }
