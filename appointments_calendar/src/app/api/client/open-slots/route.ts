@@ -5,8 +5,6 @@ import { AvailabilityService } from "@/lib/availability-service";
 import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
-  console.error("🚨 OPEN-SLOTS API CALLED - Debug version deployed");
-  
   try {
     const { searchParams } = new URL(request.url);
     const providerId = searchParams.get("providerId");
@@ -73,18 +71,6 @@ export async function GET(request: NextRequest) {
 
     // Get the provider's timezone (fallback to Eastern if no template)
     const providerTimezone = provider.availabilityTemplates[0]?.timezone || 'America/New_York';
-    
-    // Debug logging for timezone conversion
-    console.error('� TIMEZONE DEBUG:', {
-      providerTimezone,
-      templateFound: provider.availabilityTemplates.length > 0,
-      environment: process.env.NODE_ENV,
-      nodeVersion: process.version,
-      templateData: provider.availabilityTemplates[0]
-    });
-    
-    console.error(`🚨 Provider timezone from template: ${providerTimezone}`);
-    console.error(`� Template data:`, provider.availabilityTemplates[0]);
 
     // Calculate date range
     const now = new Date();
@@ -189,26 +175,15 @@ export async function GET(request: NextRequest) {
       
       for (const timeSlot of timeSlots) {
         // Create the slot time in the provider's timezone, then convert to UTC
-        const dateStr = date.toISOString().split('T')[0]; // Get YYYY-MM-DD
-        const slotStartLocal = new Date(`${dateStr}T${timeSlot}:00`);
+        // Parse the time components properly
+        const [hours, minutes] = timeSlot.split(':').map(Number);
         
-        // Debug timezone conversion
-        console.error('� CONVERTING SLOT:', {
-          dateStr,
-          timeSlot,
-          slotStartLocal: slotStartLocal.toISOString(),
-          providerTimezone,
-          aboutToCallFromZonedTime: true
-        });
+        // Create a proper date object for the provider's local time
+        const slotStartLocal = new Date();
+        slotStartLocal.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
+        slotStartLocal.setHours(hours, minutes, 0, 0);
         
         const slotStart = fromZonedTime(slotStartLocal, providerTimezone);
-        
-        console.error('� CONVERSION RESULT:', {
-          original: slotStartLocal.toISOString(),
-          converted: slotStart.toISOString(),
-          timezoneUsed: providerTimezone,
-          hoursDifference: (slotStart.getTime() - slotStartLocal.getTime()) / (1000 * 60 * 60)
-        });
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
