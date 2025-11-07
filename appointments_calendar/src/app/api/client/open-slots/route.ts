@@ -5,6 +5,8 @@ import { AvailabilityService } from "@/lib/availability-service";
 import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
+  console.error("🚨 OPEN-SLOTS API CALLED - Debug version deployed");
+  
   try {
     const { searchParams } = new URL(request.url);
     const providerId = searchParams.get("providerId");
@@ -73,15 +75,16 @@ export async function GET(request: NextRequest) {
     const providerTimezone = provider.availabilityTemplates[0]?.timezone || 'America/New_York';
     
     // Debug logging for timezone conversion
-    console.log('🕒 TIMEZONE DEBUG:', {
+    console.error('� TIMEZONE DEBUG:', {
       providerTimezone,
       templateFound: provider.availabilityTemplates.length > 0,
       environment: process.env.NODE_ENV,
-      nodeVersion: process.version
+      nodeVersion: process.version,
+      templateData: provider.availabilityTemplates[0]
     });
     
-    console.log(`🌍 Provider timezone from template: ${providerTimezone}`);
-    console.log(`📋 Template data:`, provider.availabilityTemplates[0]);
+    console.error(`🚨 Provider timezone from template: ${providerTimezone}`);
+    console.error(`� Template data:`, provider.availabilityTemplates[0]);
 
     // Calculate date range
     const now = new Date();
@@ -190,7 +193,7 @@ export async function GET(request: NextRequest) {
         const slotStartLocal = new Date(`${dateStr}T${timeSlot}:00`);
         
         // Debug timezone conversion
-        console.log('🕒 CONVERTING SLOT:', {
+        console.error('� CONVERTING SLOT:', {
           dateStr,
           timeSlot,
           slotStartLocal: slotStartLocal.toISOString(),
@@ -200,7 +203,7 @@ export async function GET(request: NextRequest) {
         
         const slotStart = fromZonedTime(slotStartLocal, providerTimezone);
         
-        console.log('🕒 CONVERSION RESULT:', {
+        console.error('� CONVERSION RESULT:', {
           original: slotStartLocal.toISOString(),
           converted: slotStart.toISOString(),
           timezoneUsed: providerTimezone,
