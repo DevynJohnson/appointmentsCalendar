@@ -20,7 +20,9 @@ const defaultWAFConfig: WAFConfig = {
   },
   ipWhitelist: process.env.WAF_IP_WHITELIST 
     ? process.env.WAF_IP_WHITELIST.split(',').map(ip => ip.trim()).filter(Boolean)
-    : ['127.0.0.1', '::1', 'localhost'], // Always whitelist localhost for development
+    : process.env.NODE_ENV === 'development' 
+      ? ['127.0.0.1', '::1', 'localhost'] // Only whitelist localhost in development
+      : undefined, // No default whitelist in production
   ipBlacklist: process.env.WAF_IP_BLACKLIST 
     ? process.env.WAF_IP_BLACKLIST.split(',').map(ip => ip.trim()).filter(Boolean)
     : undefined,
@@ -31,6 +33,12 @@ const defaultWAFConfig: WAFConfig = {
 export function wafMiddleware(request: NextRequest, config: WAFConfig = defaultWAFConfig) {
   // Skip WAF if disabled
   if (!config.enabled) {
+    return NextResponse.next();
+  }
+
+  // Skip WAF for health check endpoints
+  const url = new URL(request.url);
+  if (url.pathname === '/api/health' || url.pathname.startsWith('/health')) {
     return NextResponse.next();
   }
 

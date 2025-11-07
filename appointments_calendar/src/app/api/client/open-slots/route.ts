@@ -168,9 +168,7 @@ export async function GET(request: NextRequest) {
       allowedDurations
     );
 
-    console.error(`🔧 CURRENT TIME: ${now.toISOString()} (UTC)`);
-    
-    // Convert the optimized results to the expected slot format
+        console.log(`🔧 CURRENT TIME: ${now.toISOString()} (UTC)`);    // Convert the optimized results to the expected slot format
     const slots = [];
     for (const slotData of slotsData) {
       const { date, duration, timeSlots } = slotData;
@@ -194,7 +192,7 @@ export async function GET(request: NextRequest) {
         // and returns the equivalent UTC time
         const slotStart = fromZonedTime(localDateTime, providerTimezone);
         
-        console.error(`🔧 SIMPLE: ${timeSlot} in ${providerTimezone} → ${slotStart.toISOString()}`);
+        console.log(`🔧 SIMPLE: ${timeSlot} in ${providerTimezone} → ${slotStart.toISOString()}`);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
@@ -203,7 +201,7 @@ export async function GET(request: NextRequest) {
         // Add a small buffer (15 minutes) to prevent booking slots that are too soon
         const currentTimeWithBuffer = new Date(now.getTime() + (15 * 60 * 1000));
         if (slotStart <= currentTimeWithBuffer) {
-          console.error(`🔧 SKIP PAST: ${timeSlot} → ${slotStart.toISOString()} is before ${currentTimeWithBuffer.toISOString()}`);
+          console.log(`🔧 SKIP PAST: ${timeSlot} → ${slotStart.toISOString()} is before ${currentTimeWithBuffer.toISOString()}`);
           continue;
         }
 
