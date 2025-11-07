@@ -253,19 +253,19 @@ function ClientBookingContent() {
     return `${dateTimeString} ${timezoneAbbr}`;
   };
 
-  const formatTimeWithTimezone = (dateString: string, timezone?: string) => {
+  const formatTimeInUserTimezone = (dateString: string) => {
     const date = new Date(dateString);
+    
+    // Show time in user's local timezone
     const timeString = date.toLocaleString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: timezone || 'America/New_York',
     });
     
-    // Get timezone abbreviation
+    // Get user's local timezone abbreviation
     const timezoneAbbr = date.toLocaleString('en-US', {
       timeZoneName: 'short',
-      timeZone: timezone || 'America/New_York',
     }).split(' ').pop();
     
     return `${timeString} ${timezoneAbbr}`;
@@ -553,7 +553,7 @@ function ClientBookingContent() {
                                     <option value="">Choose a time...</option>
                                     {availableSlotsForDay.map(slot => (
                                       <option key={slot.id} value={slot.id}>
-                                        {formatTimeWithTimezone(slot.startTime, providerInfo?.timezone)}
+                                        {formatTimeInUserTimezone(slot.startTime)}
                                         {slot.slotsRemaining > 1 && ` (${slot.slotsRemaining} slots available)`}
                                       </option>
                                     ))}
@@ -570,7 +570,7 @@ function ClientBookingContent() {
                                 return selectedSlotForDay ? (
                                   <>
                                     <p className="text-sm font-medium text-blue-900">
-                                      Selected: {formatTimeWithTimezone(selectedSlotForDay.startTime, providerInfo?.timezone)} - {formatTimeWithTimezone(selectedSlotForDay.endTime, providerInfo?.timezone)}
+                                      Selected: {formatTimeInUserTimezone(selectedSlotForDay.startTime)} - {formatTimeInUserTimezone(selectedSlotForDay.endTime)}
                                     </p>
                                     <p className="text-xs text-blue-700 mt-1">
                                       {selectedSlotForDay.duration} minutes • {selectedSlotForDay.eventTitle}

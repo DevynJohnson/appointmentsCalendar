@@ -20,7 +20,7 @@ const defaultWAFConfig: WAFConfig = {
   },
   ipWhitelist: process.env.WAF_IP_WHITELIST 
     ? process.env.WAF_IP_WHITELIST.split(',').map(ip => ip.trim()).filter(Boolean)
-    : undefined,
+    : ['127.0.0.1', '::1', 'localhost'], // Always whitelist localhost for development
   ipBlacklist: process.env.WAF_IP_BLACKLIST 
     ? process.env.WAF_IP_BLACKLIST.split(',').map(ip => ip.trim()).filter(Boolean)
     : undefined,

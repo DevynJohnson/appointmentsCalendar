@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { CalendarSyncService } from "@/lib/calendar-sync";
 import { AvailabilityService } from "@/lib/availability-service";
-import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -168,6 +168,8 @@ export async function GET(request: NextRequest) {
       allowedDurations
     );
 
+    console.error(`🔧 CURRENT TIME: ${now.toISOString()} (UTC)`);
+    
     // Convert the optimized results to the expected slot format
     const slots = [];
     for (const slotData of slotsData) {
@@ -175,32 +177,35 @@ export async function GET(request: NextRequest) {
       
       for (const timeSlot of timeSlots) {
         // Create the slot time in the provider's timezone, then convert to UTC
-        // Parse the time components properly
         const [hours, minutes] = timeSlot.split(':').map(Number);
         
-        // Create a date object representing the local time in the provider's timezone
-        // We need to create this as a "naive" date (no timezone) then tell date-fns-tz
-        // that this represents time in the provider's timezone
+        // Create a date string that represents the local time in the provider's timezone
         const year = date.getFullYear();
-        const month = date.getMonth();
+        const month = date.getMonth(); 
         const day = date.getDate();
         
-        // Create local date representing time in provider's timezone
-        const localTime = new Date(year, month, day, hours, minutes, 0, 0);
+        // Create a date object representing this time in the provider's timezone
+        // The key insight: we need to create a Date that represents the provider's local time
+        // then convert it to the equivalent UTC time
+        const localDateTime = new Date(year, month, day, hours, minutes, 0, 0);
         
-        // Convert from provider's local time to UTC
-        const slotStart = fromZonedTime(localTime, providerTimezone);
+        // Convert from the provider's local time to UTC
+        // fromZonedTime interprets the date as being in the specified timezone
+        // and returns the equivalent UTC time
+        const slotStart = fromZonedTime(localDateTime, providerTimezone);
         
-        // Temporary debug log to verify the fix is running
-        if (timeSlot === '08:00') {
-          console.error(`🔧 TIMEZONE FIX CHECK: timeSlot=${timeSlot}, localTime=${localTime.toISOString()}, convertedTime=${slotStart.toISOString()}, timezone=${providerTimezone}`);
-        }
+        console.error(`🔧 SIMPLE: ${timeSlot} in ${providerTimezone} → ${slotStart.toISOString()}`);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
 
-        // Skip if slot is in the past (additional safety check)
-        if (slotStart <= now) continue;
+        // Skip if slot is in the past
+        // Add a small buffer (15 minutes) to prevent booking slots that are too soon
+        const currentTimeWithBuffer = new Date(now.getTime() + (15 * 60 * 1000));
+        if (slotStart <= currentTimeWithBuffer) {
+          console.error(`🔧 SKIP PAST: ${timeSlot} → ${slotStart.toISOString()} is before ${currentTimeWithBuffer.toISOString()}`);
+          continue;
+        }
 
         const locationDisplay = getLocationForDate(slotStart);
         

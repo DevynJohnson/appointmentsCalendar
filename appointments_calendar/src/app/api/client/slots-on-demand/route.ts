@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
     const targetDate = new Date(date + 'T00:00:00');
     const slotDuration = parseInt(duration);
 
-    // Validate date is not in the past
+    // Validate date is not in the past (allow same day)
     const now = new Date();
-    if (targetDate < now) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (targetDate < today) {
       return NextResponse.json({ 
         error: "Cannot book appointments in the past" 
       }, { status: 400 });
@@ -105,34 +106,52 @@ export async function GET(request: NextRequest) {
       return "Contact provider for location details";
     };
 
-    // Convert to slot format
-    const slots = availableTimeSlots.map(timeSlot => {
-      const slotStart = new Date(targetDate);
-      const [hours, minutes] = timeSlot.split(':').map(Number);
-      slotStart.setHours(hours, minutes, 0, 0);
-      
-      const slotEnd = new Date(slotStart);
-      slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
+    // Convert to slot format and filter out past times
+    const currentTimeWithBuffer = new Date(now.getTime() + (15 * 60 * 1000)); // 15 minute buffer
+    
+    const slots = availableTimeSlots
+      .map(timeSlot => {
+        const slotStart = new Date(targetDate);
+        const [hours, minutes] = timeSlot.split(':').map(Number);
+        slotStart.setHours(hours, minutes, 0, 0);
+        
+        const slotEnd = new Date(slotStart);
+        slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
 
-      return {
-        id: `slot-${slotStart.getTime()}-${slotDuration}`,
-        eventId: `auto-${slotStart.getTime()}-${slotDuration}`,
-        startTime: slotStart.toISOString(),
-        endTime: slotEnd.toISOString(),
-        duration: slotDuration,
-        provider: {
-          id: provider.id,
-          name: provider.name,
-        },
-        location: {
-          display: getLocationDisplay(),
-        },
-        availableServices: ['consultation', 'maintenance', 'emergency', 'follow-up'],
-        eventTitle: 'Available Appointment',
-        slotsRemaining: 1,
-        type: 'automatic',
-      };
-    });
+        return {
+          id: `slot-${slotStart.getTime()}-${slotDuration}`,
+          eventId: `auto-${slotStart.getTime()}-${slotDuration}`,
+          startTime: slotStart.toISOString(),
+          endTime: slotEnd.toISOString(),
+          duration: slotDuration,
+          provider: {
+            id: provider.id,
+            name: provider.name,
+          },
+          location: {
+            display: getLocationDisplay(),
+          },
+          availableServices: ['consultation', 'maintenance', 'emergency', 'follow-up'],
+          eventTitle: 'Available Appointment',
+          slotsRemaining: 1,
+          type: 'automatic',
+          slotStart, // temporary for filtering
+        };
+      })
+      .filter(slot => {
+        // Filter out past times
+        if (slot.slotStart <= currentTimeWithBuffer) {
+          console.log(`🔧 FILTERING PAST SLOT: ${slot.slotStart.toLocaleString()} is before current time + buffer`);
+          return false;
+        }
+        return true;
+      })
+      .map(slot => {
+        // Remove the temporary slotStart property
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { slotStart, ...cleanSlot } = slot;
+        return cleanSlot;
+      });
 
     console.log('Generated slots:', slots);
 

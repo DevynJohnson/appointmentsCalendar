@@ -119,6 +119,11 @@ class SecurityMonitor {
    * Check if an IP should be temporarily blocked
    */
   shouldBlockIP(ip: string): { block: boolean; reason?: string; duration?: number } {
+    // Never block localhost/development IPs
+    if (ip === '127.0.0.1' || ip === '::1' || ip === 'localhost') {
+      return { block: false };
+    }
+    
     const recentEvents = this.getEventsForIP(ip, 60); // Last hour
     
     // High severity events in last hour
@@ -161,6 +166,10 @@ class SecurityMonitor {
     }
     
     return { block: false };
+  }
+  
+  clearEventsForIP(ip: string): void {
+    this.events = this.events.filter(event => event.ip !== ip);
   }
   
   private generateFingerprint(event: Omit<SecurityEvent, 'timestamp' | 'fingerprint'>): string {
@@ -379,4 +388,8 @@ export function getIPEvents(ip: string, windowMinutes?: number): SecurityEvent[]
 
 export function checkIPBlocking(ip: string): { block: boolean; reason?: string; duration?: number } {
   return securityMonitor.shouldBlockIP(ip);
+}
+
+export function clearIPEvents(ip: string): void {
+  return securityMonitor.clearEventsForIP(ip);
 }
