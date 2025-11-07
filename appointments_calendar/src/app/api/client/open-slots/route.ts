@@ -240,6 +240,7 @@ export async function GET(request: NextRequest) {
       provider: {
         id: provider.id,
         name: provider.name,
+        timezone: providerTimezone,
       },
       totalSlots: filteredSlots.length,
       slots: filteredSlots,
