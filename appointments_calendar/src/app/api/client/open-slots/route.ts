@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { CalendarSyncService } from "@/lib/calendar-sync";
 import { AvailabilityService } from "@/lib/availability-service";
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
   try {
@@ -178,12 +178,23 @@ export async function GET(request: NextRequest) {
         // Parse the time components properly
         const [hours, minutes] = timeSlot.split(':').map(Number);
         
-        // Create a proper date object for the provider's local time
-        const slotStartLocal = new Date();
-        slotStartLocal.setFullYear(date.getFullYear(), date.getMonth(), date.getDate());
-        slotStartLocal.setHours(hours, minutes, 0, 0);
+        // Create a date object representing the local time in the provider's timezone
+        // We need to create this as a "naive" date (no timezone) then tell date-fns-tz
+        // that this represents time in the provider's timezone
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        const day = date.getDate();
         
-        const slotStart = fromZonedTime(slotStartLocal, providerTimezone);
+        // Create local date representing time in provider's timezone
+        const localTime = new Date(year, month, day, hours, minutes, 0, 0);
+        
+        // Convert from provider's local time to UTC
+        const slotStart = fromZonedTime(localTime, providerTimezone);
+        
+        // Temporary debug log to verify the fix is running
+        if (timeSlot === '08:00') {
+          console.error(`🔧 TIMEZONE FIX CHECK: timeSlot=${timeSlot}, localTime=${localTime.toISOString()}, convertedTime=${slotStart.toISOString()}, timezone=${providerTimezone}`);
+        }
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
