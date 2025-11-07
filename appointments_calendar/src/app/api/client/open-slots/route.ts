@@ -71,6 +71,17 @@ export async function GET(request: NextRequest) {
 
     // Get the provider's timezone (fallback to Eastern if no template)
     const providerTimezone = provider.availabilityTemplates[0]?.timezone || 'America/New_York';
+    
+    // Debug logging for timezone conversion
+    console.log('🕒 TIMEZONE DEBUG:', {
+      providerTimezone,
+      templateFound: provider.availabilityTemplates.length > 0,
+      environment: process.env.NODE_ENV,
+      nodeVersion: process.version
+    });
+    
+    console.log(`🌍 Provider timezone from template: ${providerTimezone}`);
+    console.log(`📋 Template data:`, provider.availabilityTemplates[0]);
 
     // Calculate date range
     const now = new Date();
@@ -177,7 +188,24 @@ export async function GET(request: NextRequest) {
         // Create the slot time in the provider's timezone, then convert to UTC
         const dateStr = date.toISOString().split('T')[0]; // Get YYYY-MM-DD
         const slotStartLocal = new Date(`${dateStr}T${timeSlot}:00`);
+        
+        // Debug timezone conversion
+        console.log('🕒 CONVERTING SLOT:', {
+          dateStr,
+          timeSlot,
+          slotStartLocal: slotStartLocal.toISOString(),
+          providerTimezone,
+          aboutToCallFromZonedTime: true
+        });
+        
         const slotStart = fromZonedTime(slotStartLocal, providerTimezone);
+        
+        console.log('🕒 CONVERSION RESULT:', {
+          original: slotStartLocal.toISOString(),
+          converted: slotStart.toISOString(),
+          timezoneUsed: providerTimezone,
+          hoursDifference: (slotStart.getTime() - slotStartLocal.getTime()) / (1000 * 60 * 60)
+        });
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
