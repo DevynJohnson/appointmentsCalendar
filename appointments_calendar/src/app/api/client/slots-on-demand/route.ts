@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AvailabilityService } from "@/lib/availability-service";
+import { fromZonedTime } from 'date-fns-tz';
 
 /**
  * On-demand slot generation API
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch provider details
+    // Fetch provider details including timezone
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -40,6 +41,11 @@ export async function GET(request: NextRequest) {
         name: true,
         allowedDurations: true,
         advanceBookingDays: true,
+        availabilityTemplates: {
+          where: { isDefault: true },
+          select: { timezone: true },
+          take: 1,
+        },
       },
     });
 
@@ -111,12 +117,26 @@ export async function GET(request: NextRequest) {
     
     const slots = availableTimeSlots
       .map(timeSlot => {
-        const slotStart = new Date(targetDate);
+        // CRITICAL FIX: Use Date.UTC to create timezone-neutral dates
+        // This ensures consistent behavior regardless of server timezone
         const [hours, minutes] = timeSlot.split(':').map(Number);
-        slotStart.setHours(hours, minutes, 0, 0);
+        const year = targetDate.getFullYear();
+        const month = targetDate.getMonth();
+        const day = targetDate.getDate();
+        
+        // Create timezone-neutral UTC date, then convert to provider's timezone
+        const utcDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+        
+        // Get provider's timezone from availability template
+        const providerTimezone = provider.availabilityTemplates?.[0]?.timezone || 'America/New_York';
+        
+        // Convert from provider's timezone to actual UTC
+        const slotStart = fromZonedTime(utcDateTime, providerTimezone);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
+
+        console.log(`🔧 SLOTS-ON-DEMAND: ${timeSlot} → UTC: ${utcDateTime.toISOString()} → ${providerTimezone}: ${slotStart.toISOString()}`);
 
         return {
           id: `slot-${slotStart.getTime()}-${slotDuration}`,
