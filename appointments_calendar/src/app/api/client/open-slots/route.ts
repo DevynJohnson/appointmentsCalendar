@@ -182,19 +182,18 @@ export async function GET(request: NextRequest) {
         const month = date.getMonth(); 
         const day = date.getDate();
         
-        // Create a date object representing this time in the provider's timezone
-        // The key insight: we need to create a Date that represents the provider's local time
-        // then convert it to the equivalent UTC time
-        const localDateTime = new Date(year, month, day, hours, minutes, 0, 0);
+        // CRITICAL FIX: Use Date.UTC() to create timezone-neutral dates
+        // This ensures consistent behavior regardless of server timezone (UTC vs Chicago)
+        // new Date() constructor uses server timezone, Date.UTC() is timezone-neutral
+        const utcDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
         
-        // Convert from the provider's local time to UTC
-        // fromZonedTime interprets the date as being in the specified timezone
-        // and returns the equivalent UTC time
-        const slotStart = fromZonedTime(localDateTime, providerTimezone);
+        // Now interpret this UTC time as if it represents the provider's local time
+        // fromZonedTime will convert from provider timezone to actual UTC
+        const slotStart = fromZonedTime(utcDateTime, providerTimezone);
         
         // Enhanced debug logging for production troubleshooting
         console.log(`🔧 ENHANCED DEBUG: timeSlot=${timeSlot}, providerTimezone=${providerTimezone}, NODE_ENV=${process.env.NODE_ENV}`);
-        console.log(`🔧 LOCAL DATETIME: ${localDateTime.toISOString()} (created as local time)`);
+        console.log(`🔧 UTC DATETIME: ${utcDateTime.toISOString()} (created with Date.UTC)`);
         console.log(`🔧 CONVERTED UTC: ${slotStart.toISOString()} (after fromZonedTime conversion)`);
         console.log(`🔧 SERVER TIMEZONE: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
         
