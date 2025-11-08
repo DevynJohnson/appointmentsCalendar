@@ -424,10 +424,10 @@ export default function ManageLocationPage() {
                         <strong>Note:</strong> These schedules define <em>when</em> you&apos;ll be at a location. 
                         For specific time-based availability (your working hours, availability windows for specific days of the week, etc.), customize your{' '}
                         <a 
-                          href="/provider/availability-templates" 
+                          href="/provider/availability-schedules" 
                           className="text-blue-600 hover:text-blue-800 underline font-medium"
                         >
-                          availability templates
+                          availability schedules
                         </a>.
                       </p>
                     </div>

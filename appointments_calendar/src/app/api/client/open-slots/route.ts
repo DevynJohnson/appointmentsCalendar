@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { CalendarSyncService } from "@/lib/calendar-sync";
 import { AvailabilityService } from "@/lib/availability-service";
+import { AdvancedAvailabilityService } from "@/lib/advanced-availability-service";
 import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(request: NextRequest) {
@@ -168,12 +169,26 @@ export async function GET(request: NextRequest) {
       allowedDurations
     );
 
-        console.log(`🔧 CURRENT TIME: ${now.toISOString()} (UTC)`);    // Convert the optimized results to the expected slot format
+    console.log(`🔧 CURRENT TIME: ${now.toISOString()} (UTC)`);
+    
+    // Convert the optimized results to the expected slot format
     const slots = [];
     for (const slotData of slotsData) {
       const { date, duration, timeSlots } = slotData;
       
-      for (const timeSlot of timeSlots) {
+      // Check for advanced availability schedules that might override or modify these slots
+      const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
+        providerId,
+        date
+      );
+      
+      // If advanced schedules exist, use their time slots instead of template slots
+      const finalTimeSlots = advancedAvailability.appliedSchedules.length > 0 
+        ? (advancedAvailability.timeSlots as Array<{ startTime: string }>).map(slot => slot.startTime)
+          .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index) // Remove duplicates
+        : timeSlots;
+      
+      for (const timeSlot of finalTimeSlots) {
         // Create the slot time in the provider's timezone, then convert to UTC
         const [hours, minutes] = timeSlot.split(':').map(Number);
         
@@ -238,7 +253,7 @@ export async function GET(request: NextRequest) {
       ? slots.filter(slot => slot.availableServices.includes(serviceType))
       : slots;
 
-    console.log(`📅 Generated ${slots.length} total slots using availability templates, ${filteredSlots.length} after filtering for service type: ${serviceType || 'any'}`);
+    console.log(`📅 Generated ${slots.length} total slots using availability templates and advanced schedules, ${filteredSlots.length} after filtering for service type: ${serviceType || 'any'}`);
 
     return NextResponse.json({
       success: true,
@@ -253,6 +268,7 @@ export async function GET(request: NextRequest) {
       // Add information about the availability system being used
       availabilitySystem: {
         usingTemplates: true,
+        usingAdvancedSchedules: true,
         allowedDurations: provider.allowedDurations || [15, 30, 45, 60, 90],
       }
     });

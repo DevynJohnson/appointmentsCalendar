@@ -86,19 +86,48 @@ export default function QuickStartGuide({ connections, defaultCalendar }: QuickS
       },
       {
         id: 'create-availability-template',
-        title: 'Set Up Availability Templates',
+        title: 'Set Up Availability Schedules',
         description: 'Define your working hours and when clients can book appointments',
-        action: 'Create Templates',
-        href: '/provider/availability-templates',
+        action: 'Create Schedules',
+        href: '/provider/availability-schedules',
         checkCompletion: async () => {
           try {
             const token = localStorage.getItem('providerToken');
-            const response = await fetch('/api/provider/availability-templates', {
+            
+            // Check for availability templates
+            const templatesResponse = await fetch('/api/provider/availability/templates', {
               headers: { Authorization: `Bearer ${token}` }
             });
-            if (response.ok) {
-              const data = await response.json();
-              return data.templates && data.templates.length > 0;
+            
+            if (templatesResponse.ok) {
+              const templatesData = await templatesResponse.json();
+              
+              if (templatesData.templates && templatesData.templates.length > 0) {
+                // Check if any template has either traditional availability or advanced schedules
+                for (const template of templatesData.templates) {
+                  // Check for traditional availability settings
+                  if (template.settings && Object.keys(template.settings).length > 0) {
+                    return true;
+                  }
+                  
+                  // Check for advanced availability schedules
+                  try {
+                    const schedulesResponse = await fetch(`/api/provider/advanced-availability?templateId=${template.id}`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    
+                    if (schedulesResponse.ok) {
+                      const schedulesData = await schedulesResponse.json();
+                      if (schedulesData && schedulesData.length > 0) {
+                        return true;
+                      }
+                    }
+                  } catch (scheduleError) {
+                    // Continue checking other templates if this one fails
+                    console.error('Error checking schedules for template:', template.id, scheduleError);
+                  }
+                }
+              }
             }
           } catch (error) {
             console.error('Error checking availability templates:', error);
@@ -182,19 +211,48 @@ export default function QuickStartGuide({ connections, defaultCalendar }: QuickS
     },
     {
       id: 'create-availability-template',
-      title: 'Set Up Availability Templates',
+      title: 'Set Up Availability Schedules',
       description: 'Define your working hours and when clients can book appointments',
-      action: 'Create Templates',
-      href: '/provider/availability-templates',
+      action: 'Create Schedules',
+      href: '/provider/availability-schedules',
       checkCompletion: async () => {
         try {
           const token = localStorage.getItem('providerToken');
-          const response = await fetch('/api/provider/availability-templates', {
+          
+          // Check for availability templates
+          const templatesResponse = await fetch('/api/provider/availability/templates', {
             headers: { Authorization: `Bearer ${token}` }
           });
-          if (response.ok) {
-            const data = await response.json();
-            return data.templates && data.templates.length > 0;
+          
+          if (templatesResponse.ok) {
+            const templatesData = await templatesResponse.json();
+            
+            if (templatesData.templates && templatesData.templates.length > 0) {
+              // Check if any template has either traditional availability or advanced schedules
+              for (const template of templatesData.templates) {
+                // Check for traditional availability settings
+                if (template.settings && Object.keys(template.settings).length > 0) {
+                  return true;
+                }
+                
+                // Check for advanced availability schedules
+                try {
+                  const schedulesResponse = await fetch(`/api/provider/advanced-availability?templateId=${template.id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                  });
+                  
+                  if (schedulesResponse.ok) {
+                    const schedulesData = await schedulesResponse.json();
+                    if (schedulesData && schedulesData.length > 0) {
+                      return true;
+                    }
+                  }
+                } catch (scheduleError) {
+                  // Continue checking other templates if this one fails
+                  console.error('Error checking schedules for template:', template.id, scheduleError);
+                }
+              }
+            }
           }
         } catch (error) {
           console.error('Error checking availability templates:', error);

@@ -164,7 +164,7 @@ export default function Nav({ type = 'public' }: NavProps) {
     { href: '/provider/location', label: 'Locations' },
     { href: '/provider/bookings', label: 'Bookings' },
     { href: '/provider/share', label: 'Share' },
-    { href: '/provider/availability-templates', label: 'Availability' },
+    { href: '/provider/availability-schedules', label: 'Availability' },
   ];
 
   // Public Navigation Items (used for both public and customer since clients use magic links)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AvailabilityService } from "@/lib/availability-service";
+import { AdvancedAvailabilityService } from "@/lib/advanced-availability-service";
 
 /**
  * Preview API - Shows available days and duration counts without generating full slots
@@ -62,12 +63,49 @@ export async function GET(request: NextRequest) {
 
     const allowedDurations = provider.allowedDurations || [15, 30, 45, 60, 90];
 
-    // Get availability preview - just check which days have any availability
+    // Get availability preview - check which days have any availability
+    // This uses both traditional templates and advanced scheduling
     const availabilityPreview = await AvailabilityService.getAvailabilityPreview(
       providerId,
       now,
       maxDate,
       allowedDurations
+    );
+
+    // Enhance availability preview by checking for advanced schedules
+    // This ensures the preview accurately reflects the actual scheduling system
+    const enhancedAvailability = await Promise.all(
+      availabilityPreview.map(async (day) => {
+        const dayDate = new Date(day.date);
+        const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
+          providerId,
+          dayDate
+        );
+        
+        // If advanced schedules exist for this date, they take precedence
+        if (advancedAvailability.appliedSchedules.length > 0) {
+          // Check if advanced schedules actually provide availability for any of the allowed durations
+          const advancedTimeSlots = (advancedAvailability.timeSlots as Array<{ startTime: string }>)
+            .map(slot => slot.startTime)
+            .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index); // Remove duplicates
+          
+          // Return enhanced day info showing advanced scheduling is active
+          return {
+            ...day,
+            hasAvailability: advancedTimeSlots.length > 0,
+            availableDurations: advancedTimeSlots.length > 0 ? allowedDurations : [],
+            usingAdvancedSchedules: true,
+            schedulesApplied: advancedAvailability.appliedSchedules.length
+          };
+        }
+        
+        // No advanced schedules, use template availability as-is
+        return {
+          ...day,
+          usingAdvancedSchedules: false,
+          schedulesApplied: 0
+        };
+      })
     );
 
     // Helper function to get location for a specific date
@@ -101,7 +139,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Add location information to each availability day
-    const availabilityWithLocation = availabilityPreview.map(day => ({
+    const availabilityWithLocation = enhancedAvailability.map(day => ({
       ...day,
       location: getLocationForDate(day.date),
     }));
@@ -115,7 +153,12 @@ export async function GET(request: NextRequest) {
       },
       allowedDurations,
       availability: availabilityWithLocation,
-      message: "Preview data - full slots generated on booking selection"
+      message: "Preview data - enhanced with advanced scheduling support",
+      availabilitySystem: {
+        usingTemplates: true,
+        usingAdvancedSchedules: true,
+        totalDaysWithAdvancedSchedules: availabilityWithLocation.filter(day => day.usingAdvancedSchedules).length
+      }
     });
 
   } catch (error) {

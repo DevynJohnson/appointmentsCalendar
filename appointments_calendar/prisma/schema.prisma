@@ -199,21 +199,50 @@ model MagicLink {
 }
 
 model AvailabilityTemplate {
-  id          String                 @id @default(cuid())
-  providerId  String
-  name        String
-  isDefault   Boolean                @default(false)
-  isActive    Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
-  timezone    String                 @default("America/New_York")
-  provider    Provider               @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  timeSlots   AvailabilityTimeSlot[]
-  assignments TemplateAssignment[]
+  id                    String                 @id @default(cuid())
+  providerId            String
+  name                  String
+  isDefault             Boolean                @default(false)
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  timezone              String                 @default("America/New_York")
+  availabilitySchedules AvailabilitySchedule[]
+  provider              Provider               @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  timeSlots             AvailabilityTimeSlot[]
+  assignments           TemplateAssignment[]
 
   @@index([providerId, isDefault])
   @@index([providerId, isActive])
   @@map("availability_templates")
+}
+
+model AvailabilitySchedule {
+  id                 String                         @id @default(cuid())
+  templateId         String                         @map("template_id")
+  name               String
+  startDate          DateTime                       @map("start_date")
+  endDate            DateTime?                      @map("end_date")
+  isRecurring        Boolean                        @default(false) @map("is_recurring")
+  recurrenceType     RecurrenceType?                @map("recurrence_type")
+  recurrenceInterval Int?                           @map("recurrence_interval")
+  daysOfWeek         Int[]                          @default([]) @map("days_of_week")
+  weekOfMonth        Int?                           @map("week_of_month")
+  monthOfYear        Int?                           @map("month_of_year")
+  recurrenceEndDate  DateTime?                      @map("recurrence_end_date")
+  occurrenceCount    Int?                           @map("occurrence_count")
+  isActive           Boolean                        @default(true) @map("is_active")
+  priority           Int                            @default(0)
+  createdAt          DateTime                       @default(now()) @map("created_at")
+  updatedAt          DateTime                       @default(now()) @map("updated_at")
+  timeSlots          AvailabilityScheduleTimeSlot[] @relation("ScheduleTimeSlots")
+  template           AvailabilityTemplate           @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([isRecurring, recurrenceType])
+  @@index([startDate, endDate])
+  @@index([templateId])
+  @@index([templateId, priority])
+  @@map("availability_schedules")
 }
 
 model AvailabilityTimeSlot {
@@ -230,6 +259,22 @@ model AvailabilityTimeSlot {
   @@index([templateId, dayOfWeek])
   @@index([dayOfWeek, startTime, endTime])
   @@map("availability_time_slots")
+}
+
+model AvailabilityScheduleTimeSlot {
+  id         String               @id @default(cuid())
+  scheduleId String               @map("schedule_id")
+  dayOfWeek  Int                  @map("day_of_week")
+  startTime  String               @map("start_time")
+  endTime    String               @map("end_time")
+  isEnabled  Boolean              @default(true) @map("is_enabled")
+  createdAt  DateTime             @default(now()) @map("created_at")
+  updatedAt  DateTime             @default(now()) @map("updated_at")
+  schedule   AvailabilitySchedule @relation("ScheduleTimeSlots", fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([dayOfWeek, startTime, endTime])
+  @@index([scheduleId, dayOfWeek])
+  @@map("availability_schedule_time_slots")
 }
 
 model TemplateAssignment {

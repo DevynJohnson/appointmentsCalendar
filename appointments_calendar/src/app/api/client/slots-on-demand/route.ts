@@ -1,12 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { AvailabilityService } from "@/lib/availability-service";
+import { AdvancedAvailabilityService } from "@/lib/advanced-availability-service";
 import { fromZonedTime } from 'date-fns-tz';
 
 /**
  * On-demand slot generation API
  * Generates specific slots only when user selects a date and duration
  */
+
+interface SlotWithTempStart {
+  id: string;
+  eventId: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  provider: { id: string; name: string };
+  location: { display: string };
+  availableServices: string[];
+  eventTitle: string;
+  slotsRemaining: number;
+  type: string;
+  slotStart: Date;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -63,14 +80,28 @@ export async function GET(request: NextRequest) {
 
     console.log('Slots on-demand request:', { providerId, date, duration: slotDuration });
 
-    // Generate slots for this specific date and duration
+    // First get basic availability from templates
     const availableTimeSlots = await AvailabilityService.getAvailableSlots(
       providerId,
       targetDate,
       slotDuration
     );
 
+    // Check for advanced availability schedules that might override template availability
+    const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
+      providerId,
+      targetDate
+    );
+
+    // Use advanced schedule time slots if they exist, otherwise use template slots
+    const finalTimeSlots = advancedAvailability.appliedSchedules.length > 0 
+      ? (advancedAvailability.timeSlots as Array<{ startTime: string }>).map(slot => slot.startTime)
+        .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index) // Remove duplicates
+      : availableTimeSlots;
+
     console.log('Available time slots from service:', availableTimeSlots);
+    console.log('Advanced schedules found:', advancedAvailability.appliedSchedules.length);
+    console.log('Final time slots to use:', finalTimeSlots);
 
     // Get provider locations for location display
     const providerLocations = await prisma.providerLocation.findMany({
@@ -115,8 +146,8 @@ export async function GET(request: NextRequest) {
     // Convert to slot format and filter out past times
     const currentTimeWithBuffer = new Date(now.getTime() + (15 * 60 * 1000)); // 15 minute buffer
     
-    const slots = availableTimeSlots
-      .map(timeSlot => {
+    const slots = finalTimeSlots
+      .map((timeSlot: string) => {
         // CRITICAL FIX: Use Date.UTC to create timezone-neutral dates
         // This ensures consistent behavior regardless of server timezone
         const [hours, minutes] = timeSlot.split(':').map(Number);
@@ -158,7 +189,7 @@ export async function GET(request: NextRequest) {
           slotStart, // temporary for filtering
         };
       })
-      .filter(slot => {
+      .filter((slot: SlotWithTempStart) => {
         // Filter out past times
         if (slot.slotStart <= currentTimeWithBuffer) {
           console.log(`🔧 FILTERING PAST SLOT: ${slot.slotStart.toLocaleString()} is before current time + buffer`);
@@ -166,7 +197,7 @@ export async function GET(request: NextRequest) {
         }
         return true;
       })
-      .map(slot => {
+      .map((slot: SlotWithTempStart) => {
         // Remove the temporary slotStart property
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { slotStart, ...cleanSlot } = slot;
@@ -184,7 +215,14 @@ export async function GET(request: NextRequest) {
         name: provider.name,
       },
       slots,
-      totalSlots: slots.length
+      totalSlots: slots.length,
+      // Add information about which availability system was used
+      availabilitySystem: {
+        usingTemplates: true,
+        usingAdvancedSchedules: true,
+        advancedSchedulesApplied: advancedAvailability.appliedSchedules.length > 0,
+        schedulesFound: advancedAvailability.appliedSchedules.length
+      }
     });
 
   } catch (error) {
