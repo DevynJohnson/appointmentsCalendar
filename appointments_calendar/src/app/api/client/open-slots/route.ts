@@ -192,7 +192,11 @@ export async function GET(request: NextRequest) {
         // and returns the equivalent UTC time
         const slotStart = fromZonedTime(localDateTime, providerTimezone);
         
-        console.log(`🔧 SIMPLE: ${timeSlot} in ${providerTimezone} → ${slotStart.toISOString()}`);
+        // Enhanced debug logging for production troubleshooting
+        console.log(`🔧 ENHANCED DEBUG: timeSlot=${timeSlot}, providerTimezone=${providerTimezone}, NODE_ENV=${process.env.NODE_ENV}`);
+        console.log(`🔧 LOCAL DATETIME: ${localDateTime.toISOString()} (created as local time)`);
+        console.log(`🔧 CONVERTED UTC: ${slotStart.toISOString()} (after fromZonedTime conversion)`);
+        console.log(`🔧 SERVER TIMEZONE: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
