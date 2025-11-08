@@ -148,7 +148,14 @@ export default function Nav({ type = 'public' }: NavProps) {
     }
   };
 
-  const isActive = (path: string) => pathname === path || pathname.startsWith(path);
+  const isActive = (path: string) => {
+    // Special case for home page - only active if pathname is exactly '/'
+    if (path === '/') {
+      return pathname === '/';
+    }
+    // For other paths, check if pathname starts with the path
+    return pathname === path || pathname.startsWith(path + '/');
+  };
 
   // Provider Navigation Items
   const providerNavItems = [
