@@ -6,9 +6,6 @@ import { useRouter } from 'next/navigation';
 import { secureFetch } from '@/lib/csrf';
 import QuickStartGuide from '@/components/QuickStartGuide';
 
-// Completion check logic for Quick Start Guide
-import type { CalendarConnection, DefaultCalendarSettings } from '@/components/QuickStartGuide';
-
 async function checkQuickStartCompletion(
   connections: CalendarConnection[],
   defaultCalendar: DefaultCalendarSettings | null
