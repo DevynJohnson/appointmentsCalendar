@@ -289,8 +289,9 @@ export default function QuickStartGuide({ connections, defaultCalendar }: QuickS
   const totalCount = quickStartItems.length;
   const isFullyComplete = completedCount === totalCount;
 
-  // Don't show the guide if everything is complete and user has collapsed it
-  if (isFullyComplete && !isExpanded) {
+
+  // Hide the guide if everything is complete on initial load
+  if (isFullyComplete) {
     return null;
   }
 
@@ -326,7 +327,7 @@ export default function QuickStartGuide({ connections, defaultCalendar }: QuickS
               </h3>
               <p className="text-sm text-gray-700 mb-3">
                 {isFullyComplete 
-                  ? 'Great! You&apos;ve completed all the essential setup steps. Your calendar system is ready to use.'
+                  ? 'Great! You completed all the essential setup steps. Your calendar system is ready to use.'
                   : 'Complete these essential steps to get your calendar system up and running'
                 }
               </p>

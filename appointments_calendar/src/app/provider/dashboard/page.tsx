@@ -6,6 +6,73 @@ import { useRouter } from 'next/navigation';
 import { secureFetch } from '@/lib/csrf';
 import QuickStartGuide from '@/components/QuickStartGuide';
 
+// Completion check logic for Quick Start Guide
+import type { CalendarConnection, DefaultCalendarSettings } from '@/components/QuickStartGuide';
+
+async function checkQuickStartCompletion(
+  connections: CalendarConnection[],
+  defaultCalendar: DefaultCalendarSettings | null
+) {
+  const quickStartItems = [
+    () => connections.length > 0,
+  () => connections.some((conn: CalendarConnection) => conn.syncEvents === true),
+    () => Boolean(defaultCalendar?.currentDefault),
+    async () => {
+      try {
+        const token = localStorage.getItem('providerToken');
+        const templatesResponse = await fetch('/api/provider/availability/templates', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (templatesResponse.ok) {
+          const templatesData = await templatesResponse.json();
+          if (templatesData.templates && templatesData.templates.length > 0) {
+            for (const template of templatesData.templates) {
+              if (template.settings && Object.keys(template.settings).length > 0) {
+                return true;
+              }
+              try {
+                const schedulesResponse = await fetch(`/api/provider/advanced-availability?templateId=${template.id}`, {
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                if (schedulesResponse.ok) {
+                  const schedulesData = await schedulesResponse.json();
+                  if (schedulesData && schedulesData.length > 0) {
+                    return true;
+                  }
+                }
+              } catch {}
+            }
+          }
+        }
+      } catch {}
+      return false;
+    },
+    async () => {
+      try {
+        const token = localStorage.getItem('providerToken');
+        const response = await fetch('/api/provider/location', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return data.locations && data.locations.length > 0;
+        }
+      } catch {}
+      return false;
+    }
+  ];
+  let completed = 0;
+  for (const check of quickStartItems) {
+    const result = await (typeof check === 'function' ? check() : false);
+    if (result instanceof Promise) {
+      if (await result) completed++;
+    } else if (result) {
+      completed++;
+    }
+  }
+  return completed === quickStartItems.length;
+}
+
 interface CalendarConnection {
   id: string;
   platform: string;
@@ -55,6 +122,7 @@ interface DefaultCalendarSettings {
 }
 
 export default function ProviderDashboard() {
+  const [isQuickStartComplete, setIsQuickStartComplete] = useState<boolean | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [connections, setConnections] = useState<CalendarConnection[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
@@ -239,6 +307,16 @@ export default function ProviderDashboard() {
     loadDashboardData();
   }, [loadDashboardData]);
 
+  // Check Quick Start completion after loading connections/defaultCalendar
+  useEffect(() => {
+    if (connections && defaultCalendar) {
+      (async () => {
+        const complete = await checkQuickStartCompletion(connections, defaultCalendar);
+        setIsQuickStartComplete(complete);
+      })();
+    }
+  }, [connections, defaultCalendar]);
+
   const handleUpdateDefaultCalendar = async () => {
     if (!selectedPlatform || !selectedCalendarId) return;
 
@@ -294,7 +372,7 @@ export default function ProviderDashboard() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-800">Loading dashboard...</p>
+          <p className="mt-4 text-gray-800">Syncing Your Calendars And Loading Dashboard. This May Take A Moment...</p>
         </div>
       </div>
     );
@@ -325,11 +403,13 @@ export default function ProviderDashboard() {
           </div>
         )}
 
-        {/* Quick Start Guide */}
-        <QuickStartGuide 
-          connections={connections}
-          defaultCalendar={defaultCalendar}
-        />
+        {/* Quick Start Guide - only show if not complete */}
+        {isQuickStartComplete === false && (
+          <QuickStartGuide 
+            connections={connections}
+            defaultCalendar={defaultCalendar}
+          />
+        )}
 
         {/* Stats Overview */}
         {stats && (
@@ -366,12 +446,6 @@ export default function ProviderDashboard() {
                   Availability Schedules
                 </button>
                 <button
-                  onClick={() => router.push('/provider/template-assignments')}
-                  className="text-sm text-blue-600 hover:text-green-800 block"
-                >
-                  Template Assignments
-                </button>
-                <button
                   onClick={() => router.push('/provider/calendar/connect')}
                   className="text-sm text-blue-600 hover:text-blue-800 block"
                 >
@@ -402,39 +476,21 @@ export default function ProviderDashboard() {
               Create custom schedules and manage when customers can book appointments
             </p>
           </div>
-          <div className="px-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="border rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-xl">📋</span>
-                  <h3 className="font-semibold text-gray-900">Availability Schedules</h3>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Create and manage your schedule templates with custom hours for each day
-                </p>
-                <button
-                  onClick={() => router.push('/provider/availability-schedules')}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
-                >
-                  Manage Schedules
-                </button>
+          <div className="px-6 py-4 flex justify-center">
+            <div className="border rounded-lg p-4 w-full max-w-md">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-xl">📋</span>
+                <h3 className="font-semibold text-gray-900">Availability Schedules</h3>
               </div>
-              
-              <div className="border rounded-lg p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-xl">📅</span>
-                  <h3 className="font-semibold text-gray-900">Template Assignments</h3>
-                </div>
-                <p className="text-sm text-gray-600 mb-3">
-                  Assign templates to specific date ranges for seasonal schedules
-                </p>
-                <button
-                  onClick={() => router.push('/provider/template-assignments')}
-                  className="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors text-sm font-medium"
-                >
-                  Manage Assignments
-                </button>
-              </div>
+              <p className="text-sm text-gray-600 mb-3">
+                Create and manage your schedule templates with custom hours for each day
+              </p>
+              <button
+                onClick={() => router.push('/provider/availability-schedules')}
+                className="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Manage Schedules
+              </button>
             </div>
           </div>
         </div>

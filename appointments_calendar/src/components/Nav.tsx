@@ -187,7 +187,7 @@ export default function Nav({ type = 'public' }: NavProps) {
         <div className="flex items-center h-36">
           {/* Logo/Brand - Far Left */}
           <div className="flex-shrink-0">
-            <Link href={type === 'provider' ? '/provider/dashboard' : '/'} className="flex items-center">
+            <Link href={type === 'provider' ? '/' : '/'} className="flex items-center">
               <Image 
                 src="/ZoneMeet_Logo.png" 
                 alt="Zone Meet Logo" 

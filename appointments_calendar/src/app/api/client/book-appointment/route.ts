@@ -1,6 +1,6 @@
 // Enhanced booking API that handles both manual events and automatic slots
 import { NextRequest, NextResponse } from 'next/server';
-import { AvailabilityService } from '@/lib/availability-service';
+import { AdvancedAvailabilityService } from '@/lib/advanced-availability-service';
 import { prisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
@@ -82,16 +82,19 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
     } else if (slotType === 'automatic') {
-      // Handle automatic slot booking - verify the slot is actually available
+      // Handle automatic slot booking - verify the slot is actually available using AdvancedAvailabilityService
       const appointmentTime = appointmentStart.toTimeString().slice(0, 5); // Get HH:MM format
-      const isValid = await AvailabilityService.isAvailable(
-        providerId,
-        appointmentStart,
-        appointmentTime,
-        duration
-      );
+      const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(providerId, appointmentStart);
+      const requestedStartMinutes = parseInt(appointmentTime.split(':')[0], 10) * 60 + parseInt(appointmentTime.split(':')[1], 10);
+      const isAvailable = timeSlots.some((slot: { startTime: string; endTime: string; isEnabled: boolean; dayOfWeek: number }) => {
+        const slotStartMinutes = parseInt(slot.startTime.split(':')[0], 10) * 60 + parseInt(slot.startTime.split(':')[1], 10);
+        const slotEndMinutes = parseInt(slot.endTime.split(':')[0], 10) * 60 + parseInt(slot.endTime.split(':')[1], 10);
+        return slot.isEnabled &&
+          slotStartMinutes <= requestedStartMinutes &&
+          slotEndMinutes - requestedStartMinutes >= duration;
+      });
 
-      if (!isValid) {
+      if (!isAvailable) {
         return NextResponse.json({ 
           error: 'Selected time slot is no longer available' 
         }, { status: 400 });

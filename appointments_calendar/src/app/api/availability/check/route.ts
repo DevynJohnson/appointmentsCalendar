@@ -1,6 +1,7 @@
 // API endpoint for checking availability of a specific time slot
 import { NextRequest, NextResponse } from 'next/server';
-import { AvailabilityService } from '@/lib/availability-service';
+import { AdvancedAvailabilityService } from '@/lib/advanced-availability-service';
+import { prisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,12 +24,35 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const isAvailable = await AvailabilityService.isAvailable(
-      providerId,
-      parsedDate,
-      startTime,
-      parsedDuration
-    );
+    // Fetch provider's default availability template
+    const provider = await prisma.provider.findUnique({
+      where: { id: providerId },
+      select: {
+        availabilityTemplates: {
+          where: { isDefault: true, isActive: true },
+          select: { id: true },
+          take: 1
+        }
+      }
+    });
+
+    const templateId = provider?.availabilityTemplates[0]?.id;
+    if (!templateId) {
+      return NextResponse.json({ error: 'No default availability template found for provider' }, { status: 404 });
+    }
+
+    // Use AdvancedAvailabilityService to get effective slots
+    const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, parsedDate);
+
+    // Check if any slot matches the requested start time and duration
+    const requestedStartMinutes = parseInt(startTime.split(':')[0], 10) * 60 + parseInt(startTime.split(':')[1], 10);
+    const isAvailable = timeSlots.some((slot: { startTime: string; endTime: string; isEnabled: boolean; dayOfWeek: number }) => {
+      const slotStartMinutes = parseInt(slot.startTime.split(':')[0], 10) * 60 + parseInt(slot.startTime.split(':')[1], 10);
+      const slotEndMinutes = parseInt(slot.endTime.split(':')[0], 10) * 60 + parseInt(slot.endTime.split(':')[1], 10);
+      return slot.isEnabled &&
+        slotStartMinutes <= requestedStartMinutes &&
+        slotEndMinutes - requestedStartMinutes >= parsedDuration;
+    });
     
     return NextResponse.json({ 
       isAvailable,

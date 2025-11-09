@@ -94,10 +94,16 @@ export class AdvancedAvailabilityService {
     if (targetDate < scheduleStart) return false;
     if (scheduleEnd && targetDate > scheduleEnd) return false;
 
-    // If not recurring, only active on the exact start date
+    // If not recurring, active for whole date range
     if (!schedule.isRecurring) {
+      if (scheduleEnd) {
+      return targetDate.toDateString() >=  scheduleStart.toDateString() && targetDate.toDateString() <= scheduleEnd.toDateString();
+    }
+    // If no end date, active only on start date
       return targetDate.toDateString() === scheduleStart.toDateString();
     }
+
+  
 
     // Handle recurring schedules
     return this.isRecurrenceMatch(schedule, targetDate, scheduleStart);
