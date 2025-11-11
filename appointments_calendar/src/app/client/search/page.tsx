@@ -199,29 +199,33 @@ function ProviderSearchContent() {
                       )}
                     </div>
                     {provider.company && (
-                      <p className="text-lg text-gray-800 mb-2">{provider.company}</p>
+                      <p className="text-lg font-medium text-gray-800 mb-2">{provider.company}</p>
                     )}
                     {provider.bio && (
-                      <p className="text-gray-800 mb-3 line-clamp-2">{provider.bio}</p>
+                      <p className="text-gray-800 mb-3 break-words">{provider.bio}</p>
                     )}
                     <div className="flex flex-wrap gap-4 text-sm text-gray-800 mb-4">
-                      <span>📧 {provider.email}</span>
-                      <span>📞 {provider.phone}</span>
-                      {provider.website && (
-                        <a 
-                          href={provider.website} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline"
-                        >
-                          🌐 Website
-                        </a>
-                      )}
+                      <div className="flex flex-col space-y-2 text-sm text-gray-800 mb-4">
+                        <div>📧 <a href={`mailto:${provider.email}`} className="text-blue-600 hover:underline">{provider.email}</a></div>
+                        <div>📞 {provider.phone}</div>
+                        {provider.website && (
+                          <div>
+                            <a 
+                              href={provider.website} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              🌐 {provider.website}
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </div>
                    
                   </div>
                 </div>
-                <div className="flex justify-end mt-6">
+                <div className="flex justify-center mt-6">
                   <button
                     onClick={() => handleBookWithProvider(provider.id)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 whitespace-nowrap"
