@@ -23,6 +23,9 @@ export async function GET(request: NextRequest) {
         email: provider.email,
         name: provider.name,
         company: provider.company,
+        website: provider.website,
+        bio: provider.bio,
+        phone: provider.phone,
       }
     });
 

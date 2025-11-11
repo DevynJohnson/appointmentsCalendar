@@ -95,19 +95,6 @@ function ProviderSearchContent() {
     router.push(`/client/booking?providerId=${providerId}`);
   };
 
-  const generateShareLink = (providerId: string, providerName: string) => {
-    const baseUrl = window.location.origin;
-    const shareUrl = `${baseUrl}/client/dashboard?providerId=${providerId}`;
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert(`Booking link for ${providerName} copied to clipboard!`);
-    }).catch(() => {
-      // Fallback - show the URL in an alert
-      prompt('Copy this booking link:', shareUrl);
-    });
-  };
-
   return (
     <>
       <Nav type="public" />
@@ -211,15 +198,12 @@ function ProviderSearchContent() {
                         </span>
                       )}
                     </div>
-                    
                     {provider.company && (
                       <p className="text-lg text-gray-800 mb-2">{provider.company}</p>
                     )}
-                    
                     {provider.bio && (
                       <p className="text-gray-800 mb-3 line-clamp-2">{provider.bio}</p>
                     )}
-                    
                     <div className="flex flex-wrap gap-4 text-sm text-gray-800 mb-4">
                       <span>📧 {provider.email}</span>
                       <span>📞 {provider.phone}</span>
@@ -234,27 +218,16 @@ function ProviderSearchContent() {
                         </a>
                       )}
                     </div>
-                    
-                    <div className="flex gap-4 text-xs text-gray-800">
-                      <span>⏰ {provider.defaultBookingDuration} min appointments</span>
-                      {provider.location && <span>📍 {provider.location}</span>}
-                    </div>
+                   
                   </div>
-                  
-                  <div className="flex flex-col gap-2 ml-4">
-                    <button
-                      onClick={() => handleBookWithProvider(provider.id)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 whitespace-nowrap"
-                    >
-                      Book Appointment
-                    </button>
-                    <button
-                      onClick={() => generateShareLink(provider.id, provider.name)}
-                      className="bg-gray-100 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-200 whitespace-nowrap text-sm"
-                    >
-                      📋 Copy Link
-                    </button>
-                  </div>
+                </div>
+                <div className="flex justify-end mt-6">
+                  <button
+                    onClick={() => handleBookWithProvider(provider.id)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 whitespace-nowrap"
+                  >
+                    Book Appointment
+                  </button>
                 </div>
               </div>
             ))}

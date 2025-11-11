@@ -9,6 +9,10 @@ interface Provider {
   name: string;
   email: string;
   createdAt: string;
+  phone?: string;
+  company?: string;
+  website?: string;
+  bio?: string;
 }
 
 export default function ProviderSettings() {
@@ -17,6 +21,45 @@ export default function ProviderSettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  // Profile Information form
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    company: '',
+    phone: '',
+    website: '',
+    bio: ''
+  });
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Profile update handler
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileLoading(true);
+    setError('');
+    setSuccess('');
+    try {
+      const token = localStorage.getItem('providerToken');
+      const response = await secureFetch('/api/provider/settings/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileForm)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update profile');
+      }
+      setSuccess('Profile updated successfully.');
+      // Optionally update provider state
+      setProvider((prev) => prev ? { ...prev, ...profileForm } : prev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   // Email change form
   const [emailForm, setEmailForm] = useState({
@@ -57,6 +100,13 @@ export default function ProviderSettings() {
 
         const data = await response.json();
         setProvider(data.provider);
+        setProfileForm({
+          name: data.provider.name || '',
+          company: data.provider.company || '',
+          phone: data.provider.phone || '',
+          website: data.provider.website || '',
+          bio: data.provider.bio || ''
+        });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load provider data');
       } finally {
@@ -225,27 +275,66 @@ export default function ProviderSettings() {
               </div>
             )}
 
-            {/* Account Information */}
+            {/* Profile Information */}
             <section>
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h2>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Name:</span>
-                  <span className="font-medium">{provider?.name}</span>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Profile Information</h2>
+              <form onSubmit={handleProfileUpdate} className="space-y-4 bg-gray-50 rounded-lg p-4">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Email:</span>
-                  <span className="font-medium">{provider?.email}</span>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={e => setProfileForm(f => ({ ...f, phone: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Member since:</span>
-                  <span className="font-medium">
-                    {provider?.createdAt ? new Date(provider.createdAt).toLocaleDateString() : 'N/A'}
-                  </span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company</label>
+                  <input
+                    type="text"
+                    value={profileForm.company}
+                    onChange={e => setProfileForm(f => ({ ...f, company: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                 </div>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                  <input
+                    type="url"
+                    value={profileForm.website}
+                    onChange={e => setProfileForm(f => ({ ...f, website: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bio</label>
+                  <textarea
+                    value={profileForm.bio}
+                    onChange={e => setProfileForm(f => ({ ...f, bio: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={profileLoading}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {profileLoading ? 'Saving...' : 'Update Profile'}
+                </button>
+              </form>
             </section>
-
+            
             {/* Change Email */}
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Email Address</h2>
