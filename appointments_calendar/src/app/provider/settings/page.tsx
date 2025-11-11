@@ -107,6 +107,7 @@ export default function ProviderSettings() {
           website: data.provider.website || '',
           bio: data.provider.bio || ''
         });
+        // Do NOT pre-fill emailForm fields
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load provider data');
       } finally {
@@ -334,7 +335,7 @@ export default function ProviderSettings() {
                 </button>
               </form>
             </section>
-            
+
             {/* Change Email */}
             <section>
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Change Email Address</h2>
@@ -349,6 +350,7 @@ export default function ProviderSettings() {
                     onChange={(e) => setEmailForm({...emailForm, newEmail: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div>
@@ -361,6 +363,7 @@ export default function ProviderSettings() {
                     onChange={(e) => setEmailForm({...emailForm, confirmEmail: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
+                    autoComplete="off"
                   />
                 </div>
                 <div>
@@ -373,6 +376,7 @@ export default function ProviderSettings() {
                     onChange={(e) => setEmailForm({...emailForm, currentPassword: e.target.value})}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     required
+                    autoComplete="new-password"
                   />
                 </div>
                 <button
