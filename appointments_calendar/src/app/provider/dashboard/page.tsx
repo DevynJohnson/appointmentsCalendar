@@ -177,7 +177,7 @@ export default function ProviderDashboard() {
       const currentProviderEmail = localStorage.getItem('currentProviderEmail');
       
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 
@@ -189,7 +189,7 @@ export default function ProviderDashboard() {
           localStorage.removeItem('providerToken');
           localStorage.removeItem('currentProviderEmail');
           localStorage.removeItem(`providerToken_${currentProviderEmail}`);
-          router.push('/provider/login');
+          router.push('/login');
           return;
         }
       }
@@ -207,7 +207,7 @@ export default function ProviderDashboard() {
           if (currentProviderEmail) {
             localStorage.removeItem(`providerToken_${currentProviderEmail}`);
           }
-          router.push('/provider/login');
+          router.push('/login');
           return;
         }
         
@@ -219,7 +219,7 @@ export default function ProviderDashboard() {
           localStorage.removeItem('providerToken');
           localStorage.removeItem('currentProviderEmail');
           localStorage.removeItem(`providerToken_${currentProviderEmail}`);
-          router.push('/provider/login');
+          router.push('/login');
           return;
         }
       } catch (verifyError) {
@@ -229,7 +229,7 @@ export default function ProviderDashboard() {
         if (currentProviderEmail) {
           localStorage.removeItem(`providerToken_${currentProviderEmail}`);
         }
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 

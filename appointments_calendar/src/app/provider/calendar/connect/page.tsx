@@ -60,7 +60,7 @@ export default function CalendarConnectPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 

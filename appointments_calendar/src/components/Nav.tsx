@@ -243,7 +243,7 @@ export default function Nav({ type = 'public' }: NavProps) {
                 </>
               ) : (
                 <Link
-                  href="/provider/login"
+                  href="/login"
                   className="bg-blue-600 text-white px-4 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors"
                 >
                   Login
@@ -323,14 +323,14 @@ export default function Nav({ type = 'public' }: NavProps) {
                   {type === 'provider' ? (
                     <>
                       <Link
-                        href="/provider/login"
+                        href="/login"
                         className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
                         Login
                       </Link>
                       <Link
-                        href="/provider/register"
+                        href="/register"
                         className="block w-full text-center bg-blue-600 text-white px-4 py-3 rounded-md text-lg font-medium hover:bg-blue-700 transition-colors"
                         onClick={() => setIsMobileMenuOpen(false)}
                       >
@@ -339,7 +339,7 @@ export default function Nav({ type = 'public' }: NavProps) {
                     </>
                   ) : (
                     <Link
-                      href="/provider/login"
+                      href="/login"
                       className="block w-full text-center bg-gray-100 text-gray-700 px-4 py-3 rounded-md text-lg font-medium hover:bg-gray-200 transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >

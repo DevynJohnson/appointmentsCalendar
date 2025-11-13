@@ -29,7 +29,7 @@ export default function Footer() {
             </Link>
             <Link
               className="hover:text-gray-900 hover:underline hover:underline-offset-4 transition-colors"
-              href="/provider/login"
+              href="/login"
             >
               Provider Login
             </Link>

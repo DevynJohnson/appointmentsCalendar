@@ -77,7 +77,7 @@ export default function ProviderRegisterPage() {
       }
 
       // Redirect to login page with success message
-      router.push('/provider/login?registered=true');
+      router.push('/login?registered=true');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed');
     } finally {
@@ -341,7 +341,7 @@ export default function ProviderRegisterPage() {
               <span className="text-sm text-gray-800">
                 Already have an account?{' '}
                 <button
-                  onClick={() => router.push('/provider/login')}
+                  onClick={() => router.push('/login')}
                   className="font-medium text-blue-600 hover:text-blue-500"
                 >
                   Sign in

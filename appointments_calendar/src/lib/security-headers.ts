@@ -164,8 +164,8 @@ export function securityMiddleware(request: NextRequest) {
         '/api/auth/csrf',
         '/api/provider/auth/login',
         '/api/provider/auth/register',
-        '/api/provider/login',
-        '/api/provider/register',
+        '/api/login',
+        '/api/register',
         '/api/oauth',
         '/api/callback'
       ];

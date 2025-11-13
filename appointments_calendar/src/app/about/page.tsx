@@ -124,7 +124,7 @@ export default function About() {
               </p>
               <div className="space-x-4">
                 <a
-                  href="/provider/register"
+                  href="/register"
                   className="inline-block bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
                 >
                   Register as Provider

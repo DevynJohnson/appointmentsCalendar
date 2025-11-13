@@ -86,7 +86,7 @@ export default function ProviderSettings() {
       try {
         const token = localStorage.getItem('providerToken');
         if (!token) {
-          router.push('/provider/login');
+          router.push('/login');
           return;
         }
 
@@ -162,7 +162,7 @@ export default function ProviderSettings() {
       setTimeout(() => {
         localStorage.removeItem('providerToken');
         localStorage.removeItem('currentProviderEmail');
-        router.push('/provider/login?message=Email updated. Please log in with your new email.');
+        router.push('/login?message=Email updated. Please log in with your new email.');
       }, 2000);
 
     } catch (err) {
@@ -234,7 +234,7 @@ export default function ProviderSettings() {
 
       // Clear all local storage and redirect
       localStorage.clear();
-      router.push('/provider/login?message=Account deleted successfully.');
+      router.push('/login?message=Account deleted successfully.');
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete account');
