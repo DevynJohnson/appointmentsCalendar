@@ -4,6 +4,9 @@ import { CalendarConnectionService } from '@/lib/calendar-connections';
 import { CalendarPlatform } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
+  // Use environment-specific base URL
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin;
+  
   try {
     console.log('🔍 Google OAuth Callback Started');
     
@@ -16,14 +19,14 @@ export async function GET(request: NextRequest) {
       hasCode: !!code,
       hasState: !!state,
       hasError: !!error,
-      fullUrl: request.url
+      fullUrl: baseUrl,
     });
 
     // Handle OAuth error
     if (error) {
       console.log('❌ OAuth error received:', error);
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=oauth_failed', request.url)
+        new URL('/provider/calendar/connect?error=oauth_failed', baseUrl)
       );
     }
 
@@ -31,7 +34,7 @@ export async function GET(request: NextRequest) {
     if (!code) {
       console.log('❌ Missing authorization code');
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=missing_code', request.url)
+        new URL('/provider/calendar/connect?error=missing_code', baseUrl)
       );
     }
 
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest) {
     } catch (stateError) {
       console.log('❌ Failed to parse state parameter:', stateError);
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=invalid_state', request.url)
+        new URL('/provider/calendar/connect?error=invalid_state', baseUrl)
       );
     }
 
@@ -82,7 +85,7 @@ export async function GET(request: NextRequest) {
         error: errorText
       });
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=token_exchange_failed', request.url)
+        new URL('/provider/calendar/connect?error=token_exchange_failed', baseUrl)
       );
     }
 
@@ -101,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     if (!calendarResponse.ok) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=calendar_access_failed', request.url)
+        new URL('/provider/calendar/connect?error=calendar_access_failed', baseUrl)
       );
     }
 
@@ -128,7 +131,7 @@ export async function GET(request: NextRequest) {
     
     if (!userEmail) {
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?error=no_email_access', request.url)
+        new URL('/provider/calendar/connect?error=no_email_access', baseUrl)
       );
     }
     
@@ -156,7 +159,7 @@ export async function GET(request: NextRequest) {
 
       // Redirect back to the management page
       return NextResponse.redirect(
-        new URL(`/provider/calendar/manage/${connectionId}?success=reauth_success`, request.url)
+        new URL(`/provider/calendar/manage/${connectionId}?success=reauth_success`, baseUrl)
       );
     } else {
       console.log('💾 Creating new Google calendar connection...', {
@@ -181,14 +184,14 @@ export async function GET(request: NextRequest) {
 
       // Redirect back to calendar connect page with success
       return NextResponse.redirect(
-        new URL('/provider/calendar/connect?success=google_connected', request.url)
+        new URL('/provider/calendar/connect?success=google_connected', baseUrl)
       );
     }
 
   } catch (callbackError) {
     console.log('❌ Google OAuth callback failed:', callbackError);
     return NextResponse.redirect(
-      new URL('/provider/calendar/connect?error=callback_failed', request.url)
+      new URL('/provider/calendar/connect?error=callback_failed', baseUrl)
     );
   }
 }
