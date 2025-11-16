@@ -1,5 +1,8 @@
 export interface ProviderLocation {
   id: string;
+  timezone?: string;
+  addressLine1?: string;
+  addressLine2?: string;
   city: string;
   stateProvince: string;
   country: string;

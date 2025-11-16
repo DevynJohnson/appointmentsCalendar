@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const token = authHeader.substring(7);
     const provider = await ProviderAuthService.verifyToken(token);
 
-    const { city, stateProvince, country, description, startDate, endDate, isDefault } = await request.json();
+    const { addressLine1, addressLine2, timezone, city, stateProvince, country, description, startDate, endDate, isDefault } = await request.json();
 
     // Validate required fields (dates not required for default locations)
     if (!city || !stateProvince || !country) {
@@ -91,6 +91,9 @@ export async function POST(request: NextRequest) {
 
     const location = await prisma.providerLocation.create({
       data: {
+        addressLine1,
+        addressLine2,
+        timezone,
         providerId: provider.id,
         city,
         stateProvince,

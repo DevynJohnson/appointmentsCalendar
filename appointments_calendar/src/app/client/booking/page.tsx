@@ -16,6 +16,8 @@ interface AvailabilityDay {
     stateProvince: string;
     country: string;
     description?: string;
+    addressLine1?: string;
+    addressLine2?: string;
   } | null;
 }
 
@@ -57,6 +59,8 @@ function ClientBookingContent() {
   const [providerInfo, setProviderInfo] = useState<{ id: string; name: string; timezone?: string } | null>(null);
   const [providerLocations, setProviderLocations] = useState<Array<{
     id: string;
+    addressLine1?: string;
+    addressLine2?: string;
     city: string;
     stateProvince: string;
     country: string;
@@ -113,6 +117,8 @@ function ClientBookingContent() {
             if (!uniqueLocations.has(locationKey)) {
               uniqueLocations.set(locationKey, {
                 id: locationKey,
+                addressLine1: day.location.addressLine1,
+                addressLine2: day.location.addressLine2,
                 city: day.location.city,
                 stateProvince: day.location.stateProvince,
                 country: day.location.country,
@@ -234,41 +240,23 @@ function ClientBookingContent() {
 
   const formatDateTime = (dateString: string) => {
     const date = new Date(dateString);
-    const dateTimeString = date.toLocaleString('en-US', {
+    return date.toLocaleString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZone: providerInfo?.timezone || 'America/New_York',
     });
-    
-    // Get timezone abbreviation
-    const timezoneAbbr = date.toLocaleString('en-US', {
-      timeZoneName: 'short',
-      timeZone: providerInfo?.timezone || 'America/New_York',
-    }).split(' ').pop();
-    
-    return `${dateTimeString} ${timezoneAbbr}`;
   };
 
   const formatTimeInUserTimezone = (dateString: string) => {
     const date = new Date(dateString);
-    
-    // Show time in user's local timezone
-    const timeString = date.toLocaleString('en-US', {
+    return date.toLocaleString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
     });
-    
-    // Get user's local timezone abbreviation
-    const timezoneAbbr = date.toLocaleString('en-US', {
-      timeZoneName: 'short',
-    }).split(' ').pop();
-    
-    return `${timeString} ${timezoneAbbr}`;
   };
 
   const handleDurationSelection = async (dateKey: string, duration: number) => {
@@ -276,20 +264,16 @@ function ClientBookingContent() {
     setSelectedDurationByDate(prev => ({ ...prev, [dateKey]: duration }));
     // Reset time selection when duration changes
     setSelectedTimeByDate(prev => ({ ...prev, [dateKey]: '' }));
-    
     // Fetch slots for this date and duration
     const slotsForSelection = await fetchSlotsForDateAndDuration(dateKey, duration);
     console.log('Fetched slots:', slotsForSelection);
-    
     // Store slots for this specific date/duration combination
     setSlots(prev => {
       // Remove any existing slots for this date/duration and add new ones
       const filtered = prev.filter(slot => 
         !(slot.startTime.split('T')[0] === dateKey && slot.duration === duration)
       );
-      const newSlots = [...filtered, ...slotsForSelection];
-      console.log('Updated slots state:', newSlots);
-      return newSlots;
+      return [...filtered, ...slotsForSelection];
     });
   };
 
@@ -471,19 +455,11 @@ function ClientBookingContent() {
                   const dateKey = dayInfo.date;
                   const selectedDuration = selectedDurationByDate[dateKey];
                   const availableSlotsForDay = slots.filter(slot => {
-                    const slotDate = slot.startTime.split('T')[0];
-                    const durationMatch = !selectedDuration || slot.duration === selectedDuration;
-                    console.log('Filtering slot:', { 
-                      slotDate, 
-                      dateKey, 
-                      dateMatch: slotDate === dateKey,
-                      slotDuration: slot.duration,
-                      selectedDuration,
-                      durationMatch,
-                      overallMatch: slotDate === dateKey && durationMatch
-                    });
-                    return slotDate === dateKey && durationMatch;
-                  });
+  // Convert UTC time to local date for comparison
+  const slotDate = new Date(slot.startTime).toLocaleDateString('en-CA'); // YYYY-MM-DD format
+  const durationMatch = !selectedDuration || slot.duration === selectedDuration;
+  return slotDate === dateKey && durationMatch;
+});
                   
                   console.log('Available slots for day:', { dateKey, selectedDuration, availableSlotsForDay });
                   
@@ -519,18 +495,18 @@ function ClientBookingContent() {
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Appointment Duration:
                               </label>
-                              <select
-                                value={selectedDuration || ''}
-                                onChange={(e) => handleDurationSelection(dateKey, parseInt(e.target.value))}
-                                className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              >
-                                <option value="">Choose duration...</option>
-                                {dayInfo.availableDurations.map((duration: number) => (
-                                  <option key={duration} value={duration}>
-                                    {duration} minutes
-                                  </option>
-                                ))}
-                              </select>
+                             <select
+  value={selectedDuration || ''}
+  onChange={(e) => handleDurationSelection(dateKey, parseInt(e.target.value))}
+  className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+>
+  {!selectedDuration && <option value="">Choose duration...</option>}
+  {dayInfo.availableDurations.map((duration: number) => (
+    <option key={duration} value={duration}>
+      {duration} minutes
+    </option>
+  ))}
+</select>
                             </div>
 
                             {/* Time Selection - Show loading or slots */}
@@ -551,12 +527,16 @@ function ClientBookingContent() {
                                     className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                   >
                                     <option value="">Choose a time...</option>
-                                    {availableSlotsForDay.map(slot => (
-                                      <option key={slot.id} value={slot.id}>
-                                        {formatTimeInUserTimezone(slot.startTime)}
-                                        {slot.slotsRemaining > 1 && ` (${slot.slotsRemaining} slots available)`}
-                                      </option>
-                                    ))}
+                                    {(() => {
+                                      return availableSlotsForDay.map(slot => {
+                                        return (
+                                          <option key={slot.id} value={slot.id}>
+                                            {formatTimeInUserTimezone(slot.startTime)}
+                                            {slot.slotsRemaining > 1 && ` (${slot.slotsRemaining} slots available)`}
+                                          </option>
+                                        );
+                                      });
+                                    })()}
                                   </select>
                                 )}
                               </div>

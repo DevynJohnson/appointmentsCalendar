@@ -50,20 +50,23 @@ model Provider {
 }
 
 model ProviderLocation {
-  id            String             @id @default(cuid())
-  providerId    String
-  city          String
-  stateProvince String
-  country       String
-  description   String?
-  startDate     DateTime
-  endDate       DateTime
-  isActive      Boolean            @default(true)
-  isDefault     Boolean            @default(false)
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  schedules     LocationSchedule[]
-  provider      Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  id             String             @id @default(cuid())
+  providerId     String
+  city           String
+  stateProvince  String
+  country        String
+  description    String?
+  startDate      DateTime
+  endDate        DateTime
+  isActive       Boolean            @default(true)
+  isDefault      Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  timezone       String             @default("America/New_York")
+  addressLine1   String?            
+  addressLine2   String?            
+  schedules      LocationSchedule[]
+  provider       Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@index([providerId])
   @@index([startDate, endDate])
@@ -270,10 +273,12 @@ model AvailabilityScheduleTimeSlot {
   isEnabled  Boolean              @default(true) @map("is_enabled")
   createdAt  DateTime             @default(now()) @map("created_at")
   updatedAt  DateTime             @default(now()) @map("updated_at")
+  weekNumber Int?                 @default(0) @map("week_number")
   schedule   AvailabilitySchedule @relation("ScheduleTimeSlots", fields: [scheduleId], references: [id], onDelete: Cascade)
 
   @@index([dayOfWeek, startTime, endTime])
   @@index([scheduleId, dayOfWeek])
+  @@index([scheduleId, weekNumber])
   @@map("availability_schedule_time_slots")
 }
 

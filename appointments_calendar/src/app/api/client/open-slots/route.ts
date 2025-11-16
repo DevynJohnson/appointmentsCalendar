@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       console.warn(`⚠️ Calendar sync failed for provider ${providerId}:`, syncError);
     }
 
-    // Fetch provider details including timezone from default template
+    // Fetch provider details
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         allowedDurations: true,
         availabilityTemplates: {
           where: { isDefault: true, isActive: true },
-          select: { timezone: true },
+          select: { id: true },
           take: 1
         }
       },
@@ -69,9 +69,6 @@ export async function GET(request: NextRequest) {
     if (!provider) {
       return NextResponse.json({ error: "Provider not found" }, { status: 404 });
     }
-
-    // Get the provider's timezone (fallback to Eastern if no template)
-    const providerTimezone = provider.availabilityTemplates[0]?.timezone || 'America/New_York';
 
     // Calculate date range
     const now = new Date();
@@ -88,6 +85,9 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        addressLine1: true,
+        addressLine2: true,
+        timezone: true,
         city: true,
         stateProvince: true,
         country: true,
@@ -105,13 +105,34 @@ export async function GET(request: NextRequest) {
     console.log(`📍 Found ${providerLocations.length} locations for provider ${providerId}:`, 
       providerLocations.map(loc => ({
         id: loc.id,
+        addressLine1: loc.addressLine1,
+        addressLine2: loc.addressLine2,
         city: loc.city,
         state: loc.stateProvince,
+        timezone: loc.timezone,
         isDefault: loc.isDefault,
         startDate: loc.startDate,
         endDate: loc.endDate
       }))
     );
+
+    // Helper function to get the timezone for a specific date
+    const getTimezoneForDate = (appointmentDate: Date): string => {
+      // First, try to find a date-specific location (non-default)
+      const dateSpecificLocation = providerLocations.find(location => 
+        !location.isDefault &&
+        appointmentDate >= location.startDate &&
+        appointmentDate <= location.endDate
+      );
+
+      if (dateSpecificLocation?.timezone) {
+        return dateSpecificLocation.timezone;
+      }
+
+      // Fall back to default location timezone
+      const defaultLocation = providerLocations.find(location => location.isDefault);
+      return defaultLocation?.timezone || 'America/New_York';
+    };
 
     // Helper function to find the appropriate location for a specific date
     const getLocationForDate = (appointmentDate: Date): string => {
@@ -138,13 +159,17 @@ export async function GET(request: NextRequest) {
 
     // Helper function to format location display string
     const formatLocationDisplay = (location: {
+      addressLine1: string | null;
+      addressLine2: string | null;
       city: string;
       stateProvince: string;
       country: string;
+      timezone: string | null;
       description: string | null;
     }): string => {
       const locationParts = [];
-      
+      if (location.addressLine1) locationParts.push(location.addressLine1);
+      if (location.addressLine2) locationParts.push(location.addressLine2);
       if (location.city) locationParts.push(location.city);
       if (location.stateProvince) locationParts.push(location.stateProvince);
       if (location.country) locationParts.push(location.country);
@@ -176,17 +201,49 @@ export async function GET(request: NextRequest) {
     for (const slotData of slotsData) {
       const { date, duration, timeSlots } = slotData;
       
-      // Check for advanced availability schedules that might override or modify these slots
-      const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
-        providerId,
-        date
-      );
+      // Get the timezone for this specific date
+      const providerTimezone = getTimezoneForDate(date);
       
-      // If advanced schedules exist, use their time slots instead of template slots
-      const finalTimeSlots = advancedAvailability.appliedSchedules.length > 0 
-        ? (advancedAvailability.timeSlots as Array<{ startTime: string }>).map(slot => slot.startTime)
-          .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index) // Remove duplicates
-        : timeSlots;
+      // Check for advanced availability schedules that might override or modify these slots
+      const templateId = provider.availabilityTemplates?.[0]?.id;
+      const advancedAvailability = templateId
+        ? await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, date)
+        : { timeSlots: [], appliedSchedules: [] };
+      
+      // Generate final time slots (either from advanced schedules or templates)
+let finalTimeSlots: string[];
+
+if (advancedAvailability.appliedSchedules.length > 0) {
+  // Generate time slots from advanced schedule time windows
+  const timeWindows = AdvancedAvailabilityService.getTimeWindowsForDay(
+    advancedAvailability.timeSlots,
+    date.getDay()
+  );
+  
+  console.log(`🔧 Advanced schedule time windows for ${date.toISOString()}:`, timeWindows);
+  
+  // Generate 15-minute interval slots within each time window
+  finalTimeSlots = [];
+  for (const window of timeWindows) {
+    const [startHours, startMinutes] = window.start.split(':').map(Number);
+    const [endHours, endMinutes] = window.end.split(':').map(Number);
+    
+    const windowStart = startHours * 60 + startMinutes;
+    const windowEnd = endHours * 60 + endMinutes;
+    
+    // Generate slots in 15-minute intervals that can fit the duration
+    for (let minutes = windowStart; minutes + duration <= windowEnd; minutes += 15) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const timeSlot = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+      finalTimeSlots.push(timeSlot);
+    }
+  }
+  
+  console.log(`🔧 Generated ${finalTimeSlots.length} slots from advanced schedule for ${duration}min duration`);
+} else {
+  finalTimeSlots = timeSlots;
+}
       
       for (const timeSlot of finalTimeSlots) {
         // Create the slot time in the provider's timezone, then convert to UTC
@@ -197,20 +254,19 @@ export async function GET(request: NextRequest) {
         const month = date.getMonth(); 
         const day = date.getDate();
         
-        // CRITICAL FIX: Use Date.UTC() to create timezone-neutral dates
-        // This ensures consistent behavior regardless of server timezone (UTC vs Chicago)
-        // new Date() constructor uses server timezone, Date.UTC() is timezone-neutral
-        const utcDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+        // Create a LOCAL date representing the time in the provider's timezone
+        const localDateTime = new Date(year, month, day, hours, minutes, 0, 0);
         
-        // Now interpret this UTC time as if it represents the provider's local time
-        // fromZonedTime will convert from provider timezone to actual UTC
-        const slotStart = fromZonedTime(utcDateTime, providerTimezone);
+        // Convert from provider's timezone to UTC
+        const slotStart = fromZonedTime(localDateTime, providerTimezone);
         
-        // Enhanced debug logging for production troubleshooting
-        console.log(`🔧 ENHANCED DEBUG: timeSlot=${timeSlot}, providerTimezone=${providerTimezone}, NODE_ENV=${process.env.NODE_ENV}`);
-        console.log(`🔧 UTC DATETIME: ${utcDateTime.toISOString()} (created with Date.UTC)`);
-        console.log(`🔧 CONVERTED UTC: ${slotStart.toISOString()} (after fromZonedTime conversion)`);
-        console.log(`🔧 SERVER TIMEZONE: ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
+        console.log('[SLOT DEBUG]', {
+          localTime: timeSlot,
+          providerTimezone,
+          slotDate: date.toISOString(),
+          localDateTime: localDateTime.toISOString(),
+          slotStartUTC: slotStart.toISOString(),
+        });
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + duration);
@@ -255,13 +311,17 @@ export async function GET(request: NextRequest) {
 
     console.log(`📅 Generated ${slots.length} total slots using availability templates and advanced schedules, ${filteredSlots.length} after filtering for service type: ${serviceType || 'any'}`);
 
+    // Get the default timezone for the response
+    const defaultLocation = providerLocations.find(loc => loc.isDefault);
+    const defaultTimezone = defaultLocation?.timezone || 'America/New_York';
+
     return NextResponse.json({
       success: true,
       providerId,
       provider: {
         id: provider.id,
         name: provider.name,
-        timezone: providerTimezone,
+        timezone: defaultTimezone,
       },
       totalSlots: filteredSlots.length,
       slots: filteredSlots,

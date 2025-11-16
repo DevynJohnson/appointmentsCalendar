@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
         availabilityTemplates: {
           where: { isActive: true, isDefault: true },
           select: {
+            id: true,
             timezone: true,
           },
           take: 1,
@@ -63,8 +64,7 @@ export async function GET(request: NextRequest) {
 
     const allowedDurations = provider.allowedDurations || [15, 30, 45, 60, 90];
 
-    // Get availability preview - check which days have any availability
-    // This uses both traditional templates and advanced scheduling
+    // Get availability preview from templates
     const availabilityPreview = await AvailabilityService.getAvailabilityPreview(
       providerId,
       now,
@@ -72,28 +72,71 @@ export async function GET(request: NextRequest) {
       allowedDurations
     );
 
+    // Get the default template id for advanced schedule lookup
+    const defaultTemplateId = provider.availabilityTemplates?.[0]?.id;
+    
     // Enhance availability preview by checking for advanced schedules
-    // This ensures the preview accurately reflects the actual scheduling system
     const enhancedAvailability = await Promise.all(
       availabilityPreview.map(async (day) => {
-        const dayDate = new Date(day.date);
-        const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
-          providerId,
-          dayDate
-        );
+        // Parse the date string as local date, not UTC
+const [year, month, dayNum] = day.date.split('-').map(Number);
+const dayDate = new Date(year, month - 1, dayNum); // months are 0-indexed in JS
+        
+        let advancedAvailability: {
+          timeSlots: Array<{ dayOfWeek: number; startTime: string; endTime: string }>;
+          appliedSchedules: Array<{ id: string; name: string; priority: number }>;
+        } = { timeSlots: [], appliedSchedules: [] };
+        
+        console.log(`[ADVANCED SCHEDULES] Lookup params for date ${day.date}: templateId=${defaultTemplateId}, dayDate=${dayDate.toISOString()}`);
+        
+        if (defaultTemplateId) {
+          advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
+            defaultTemplateId,
+            dayDate
+          );
+        }
+        
+        // Debug logging for advanced schedules
+        if (advancedAvailability.appliedSchedules.length > 0) {
+          console.log(`[ADVANCED SCHEDULES] Found for date ${day.date}:`, advancedAvailability.appliedSchedules);
+          console.log(`[ADVANCED SCHEDULES] Time slots for date ${day.date}:`, advancedAvailability.timeSlots);
+          console.log(`[DEBUG] Date string: ${day.date}, Date object: ${dayDate}, Day of week: ${dayDate.getDay()}`);
+        } else {
+          console.log(`[ADVANCED SCHEDULES] None found for date ${day.date}`);
+        }
         
         // If advanced schedules exist for this date, they take precedence
         if (advancedAvailability.appliedSchedules.length > 0) {
-          // Check if advanced schedules actually provide availability for any of the allowed durations
-          const advancedTimeSlots = (advancedAvailability.timeSlots as Array<{ startTime: string }>)
-            .map(slot => slot.startTime)
-            .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index); // Remove duplicates
+          // Get the day of week for filtering time slots
+          const dayOfWeek = dayDate.getDay();
           
-          // Return enhanced day info showing advanced scheduling is active
+          // Get time windows from advanced schedule for this specific day
+          const advancedTimeWindows = AdvancedAvailabilityService.getTimeWindowsForDay(
+            advancedAvailability.timeSlots,
+            dayOfWeek
+          );
+          
+          console.log(`[ADVANCED SCHEDULES] Time windows for date ${day.date} (day ${dayOfWeek}):`, advancedTimeWindows);
+          
+          // If no time slots for this day of week, mark as unavailable
+          if (advancedTimeWindows.length === 0) {
+            console.log(`[ADVANCED SCHEDULES] No time slots defined for day ${dayOfWeek}, marking unavailable`);
+            return {
+              ...day,
+              hasAvailability: false,
+              availableDurations: [],
+              timeWindows: [],
+              usingAdvancedSchedules: true,
+              schedulesApplied: advancedAvailability.appliedSchedules.length
+            };
+          }
+          
+          // Return enhanced day info with advanced schedule time windows
           return {
             ...day,
-            hasAvailability: advancedTimeSlots.length > 0,
-            availableDurations: advancedTimeSlots.length > 0 ? allowedDurations : [],
+            hasAvailability: true,
+            availableDurations: allowedDurations,
+            timeWindows: advancedTimeWindows, // FIXED: Use advanced schedule time windows
             usingAdvancedSchedules: true,
             schedulesApplied: advancedAvailability.appliedSchedules.length
           };
@@ -149,7 +192,6 @@ export async function GET(request: NextRequest) {
       provider: {
         id: provider.id,
         name: provider.name,
-        timezone: provider.availabilityTemplates[0]?.timezone || 'America/New_York',
       },
       allowedDurations,
       availability: availabilityWithLocation,
