@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
 
     if (!platform || (!isReauth && !isNewConnection)) {
       console.error('❌ Missing required state data');
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zone-meet.com';
       return NextResponse.redirect(
         new URL(`/provider/dashboard?error=${encodeURIComponent('Invalid callback state')}`, baseUrl)
       );
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
         console.log('✅ Connection updated with new tokens');
 
         // Redirect back to the calendar management page
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zone-meet.com';
         return NextResponse.redirect(
           new URL(`/provider/calendar/manage/${connectionId}?success=${encodeURIComponent('Calendar re-authenticated successfully!')}`, baseUrl)
         );
@@ -135,7 +135,7 @@ export async function GET(request: NextRequest) {
         console.log('✅ New connection created successfully');
 
         // Redirect to calendar connect page with success
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zone-meet.com';
         return NextResponse.redirect(
           new URL(`/provider/calendar/connect?success=calendar_connected`, baseUrl)
         );
@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zone-meet.com';
       if (isReauth) {
         return NextResponse.redirect(
           new URL(`/provider/calendar/manage/${connectionId}?error=${encodeURIComponent('Failed to refresh calendar authentication')}`, baseUrl)
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ Callback handler error:', error);
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://appointmentscalendar.onrender.com';
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zone-meet.com';
     return NextResponse.redirect(
       new URL(`/provider/dashboard?error=${encodeURIComponent('OAuth callback failed')}`, baseUrl)
     );
