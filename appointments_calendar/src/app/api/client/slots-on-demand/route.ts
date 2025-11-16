@@ -152,9 +152,9 @@ if (advancedAvailability.appliedSchedules.length > 0) {
       ]
     });
 
-    // Get timezone from the appropriate location (prefer date-specific, fall back to default)
-    const currentLocation = providerLocations.find(loc => !loc.isDefault) || providerLocations.find(loc => loc.isDefault);
-    const providerTimezone = currentLocation?.timezone || 'America/New_York';
+   // Get timezone from the first location (already filtered for target date and sorted by default status)
+const currentLocation = providerLocations[0];
+const providerTimezone = currentLocation?.timezone || 'America/New_York';
 
     // Helper function to get location display
     const getLocationDisplay = (): string => {
