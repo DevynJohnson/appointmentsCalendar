@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Fetch provider details including timezone
+    // Fetch provider details
     const provider = await prisma.provider.findUnique({
       where: { id: providerId },
       select: {
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         advanceBookingDays: true,
         availabilityTemplates: {
           where: { isDefault: true },
-          select: { timezone: true },
+          select: { id: true },
           take: 1,
         },
       },
@@ -88,22 +88,48 @@ export async function GET(request: NextRequest) {
     );
 
     // Check for advanced availability schedules that might override template availability
-    const advancedAvailability = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(
-      providerId,
-      targetDate
-    );
+    const defaultTemplate = provider.availabilityTemplates?.[0];
+    const templateId = defaultTemplate?.id;
+    const advancedAvailability = templateId
+      ? await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, targetDate)
+      : { timeSlots: [], appliedSchedules: [] };
 
-    // Use advanced schedule time slots if they exist, otherwise use template slots
-    const finalTimeSlots = advancedAvailability.appliedSchedules.length > 0 
-      ? (advancedAvailability.timeSlots as Array<{ startTime: string }>).map(slot => slot.startTime)
-        .filter((time: string, index: number, arr: string[]) => arr.indexOf(time) === index) // Remove duplicates
-      : availableTimeSlots;
+   // Use advanced schedule time slots if they exist, otherwise use template slots
+let finalTimeSlots: string[];
+
+if (advancedAvailability.appliedSchedules.length > 0) {
+  // Generate time slots from advanced schedule time windows
+  const timeWindows = AdvancedAvailabilityService.getTimeWindowsForDay(
+    advancedAvailability.timeSlots,
+    targetDate.getDay()
+  );
+  
+  // Generate 15-minute interval slots within each time window
+  finalTimeSlots = [];
+  for (const window of timeWindows) {
+    const [startHours, startMinutes] = window.start.split(':').map(Number);
+    const [endHours, endMinutes] = window.end.split(':').map(Number);
+    
+    const windowStart = startHours * 60 + startMinutes;
+    const windowEnd = endHours * 60 + endMinutes;
+    
+    // Generate slots in 15-minute intervals
+    for (let minutes = windowStart; minutes + slotDuration <= windowEnd; minutes += 15) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      const timeSlot = `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+      finalTimeSlots.push(timeSlot);
+    }
+  }
+} else {
+  finalTimeSlots = availableTimeSlots;
+}
 
     console.log('Available time slots from service:', availableTimeSlots);
     console.log('Advanced schedules found:', advancedAvailability.appliedSchedules.length);
     console.log('Final time slots to use:', finalTimeSlots);
 
-    // Get provider locations for location display
+    // Get provider locations for timezone and location display
     const providerLocations = await prisma.providerLocation.findMany({
       where: {
         providerId: providerId,
@@ -113,6 +139,7 @@ export async function GET(request: NextRequest) {
       },
       select: {
         id: true,
+        timezone: true,
         city: true,
         stateProvince: true,
         country: true,
@@ -124,6 +151,10 @@ export async function GET(request: NextRequest) {
         { startDate: 'desc' }
       ]
     });
+
+    // Get timezone from the appropriate location (prefer date-specific, fall back to default)
+    const currentLocation = providerLocations.find(loc => !loc.isDefault) || providerLocations.find(loc => loc.isDefault);
+    const providerTimezone = currentLocation?.timezone || 'America/New_York';
 
     // Helper function to get location display
     const getLocationDisplay = (): string => {
@@ -145,29 +176,24 @@ export async function GET(request: NextRequest) {
 
     // Convert to slot format and filter out past times
     const currentTimeWithBuffer = new Date(now.getTime() + (15 * 60 * 1000)); // 15 minute buffer
-    
+
     const slots = finalTimeSlots
       .map((timeSlot: string) => {
-        // CRITICAL FIX: Use Date.UTC to create timezone-neutral dates
-        // This ensures consistent behavior regardless of server timezone
         const [hours, minutes] = timeSlot.split(':').map(Number);
         const year = targetDate.getFullYear();
         const month = targetDate.getMonth();
         const day = targetDate.getDate();
         
-        // Create timezone-neutral UTC date, then convert to provider's timezone
-        const utcDateTime = new Date(Date.UTC(year, month, day, hours, minutes, 0, 0));
+        // Create a LOCAL date representing the time in the provider's timezone
+        const localDateTime = new Date(year, month, day, hours, minutes, 0, 0);
         
-        // Get provider's timezone from availability template
-        const providerTimezone = provider.availabilityTemplates?.[0]?.timezone || 'America/New_York';
-        
-        // Convert from provider's timezone to actual UTC
-        const slotStart = fromZonedTime(utcDateTime, providerTimezone);
+        // Convert from provider's timezone to UTC
+        const slotStart = fromZonedTime(localDateTime, providerTimezone);
         
         const slotEnd = new Date(slotStart);
         slotEnd.setMinutes(slotEnd.getMinutes() + slotDuration);
 
-        console.log(`🔧 SLOTS-ON-DEMAND: ${timeSlot} → UTC: ${utcDateTime.toISOString()} → ${providerTimezone}: ${slotStart.toISOString()}`);
+        console.log(`🔧 SLOTS-ON-DEMAND: ${timeSlot} → Local: ${localDateTime.toISOString()} → UTC (${providerTimezone}): ${slotStart.toISOString()}`);
 
         return {
           id: `slot-${slotStart.getTime()}-${slotDuration}`,
@@ -213,6 +239,7 @@ export async function GET(request: NextRequest) {
       provider: {
         id: provider.id,
         name: provider.name,
+        timezone: providerTimezone,
       },
       slots,
       totalSlots: slots.length,

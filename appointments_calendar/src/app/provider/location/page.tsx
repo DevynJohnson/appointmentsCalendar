@@ -7,9 +7,12 @@ import LocationSchedules from '@/components/LocationSchedules';
 import { ProviderLocation, LocationSchedule } from '@/types/location';
 
 interface LocationFormData {
+  addressLine1?: string;
+  addressLine2?: string;
   city: string;
   stateProvince: string;
   country: string;
+  timezone?: string;
   description: string;
   startDate: string;
   endDate: string;
@@ -23,6 +26,9 @@ export default function ManageLocationPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<LocationFormData>({
+    timezone: '',
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     stateProvince: '',
     country: '',
@@ -43,7 +49,7 @@ export default function ManageLocationPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 
@@ -57,7 +63,7 @@ export default function ManageLocationPage() {
       if (!response.ok) {
         if (response.status === 401) {
           localStorage.removeItem('providerToken');
-          router.push('/provider/login');
+          router.push('/login');
           return;
         }
         throw new Error('Failed to fetch locations');
@@ -186,7 +192,7 @@ export default function ManageLocationPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 
@@ -237,9 +243,12 @@ export default function ManageLocationPage() {
 
       // Reset form and refresh locations
       setFormData({
+        addressLine1: '',
+        addressLine2: '',
         city: '',
         stateProvince: '',
         country: '',
+        timezone: '',
         description: '',
         startDate: '',
         endDate: '',
@@ -258,9 +267,12 @@ export default function ManageLocationPage() {
 
   const handleEdit = (location: ProviderLocation) => {
     setFormData({
+      addressLine1: location.addressLine1 || '',
+      addressLine2: location.addressLine2 || '',
       city: location.city,
       stateProvince: location.stateProvince,
       country: location.country,
+      timezone: location.timezone,
       description: location.description || '',
       startDate: location.isDefault ? '' : location.startDate.split('T')[0], // Empty for default locations
       endDate: location.isDefault ? '' : location.endDate.split('T')[0],
@@ -278,7 +290,7 @@ export default function ManageLocationPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 
@@ -304,7 +316,7 @@ export default function ManageLocationPage() {
     try {
       const token = localStorage.getItem('providerToken');
       if (!token) {
-        router.push('/provider/login');
+        router.push('/login');
         return;
       }
 
@@ -319,9 +331,12 @@ export default function ManageLocationPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          addressLine1: locationToUpdate.addressLine1 || '',
+          addressLine2: locationToUpdate.addressLine2 || '',
           city: locationToUpdate.city,
           stateProvince: locationToUpdate.stateProvince,
           country: locationToUpdate.country,
+          timezone: locationToUpdate.timezone,
           description: locationToUpdate.description,
           startDate: locationToUpdate.startDate,
           endDate: locationToUpdate.endDate,
@@ -342,6 +357,9 @@ export default function ManageLocationPage() {
 
   const handleCancel = () => {
     setFormData({
+      timezone: '',
+      addressLine1: '',
+      addressLine2: '',
       city: '',
       stateProvince: '',
       country: '',
@@ -463,6 +481,32 @@ export default function ManageLocationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Address Line 1
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.addressLine1}
+                      onChange={(e) => setFormData(prev => ({ ...prev, addressLine1: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Street address, P.O. box"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
+                      Address Line 2
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.addressLine2}
+                      onChange={(e) => setFormData(prev => ({ ...prev, addressLine2: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Apartment, suite, unit, building, floor, etc."
+                    />
+                  </div>  
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-1">
                       City *
                     </label>
                     <input
@@ -502,6 +546,28 @@ export default function ManageLocationPage() {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <select
+                    value={formData.timezone}
+                    onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="America/Chicago">Central Time (US & Canada)</option>
+                    <option value="America/Denver">Mountain Time (US & Canada)</option>
+                    <option value="America/New_York">Eastern Time (US & Canada)</option>
+                    <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+                    <option value="Europe/London">London</option>
+                    <option value="Europe/Berlin">Berlin</option>
+                    <option value="Europe/Paris">Paris</option>
+                    <option value="Asia/Kolkata">Kolkata</option>
+                    <option value="Asia/Singapore">Singapore</option>
+                    <option value="Asia/Hong_Kong">Hong Kong</option>
+                    <option value="Asia/Taipei">Taipei</option>
+                    <option value="Asia/Seoul">Seoul</option>
+                    <option value="Asia/Tokyo">Tokyo</option>
+                  </select>
                 </div>
 
                 <div>
