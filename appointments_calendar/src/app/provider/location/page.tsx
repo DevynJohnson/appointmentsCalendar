@@ -549,26 +549,31 @@ export default function ManageLocationPage() {
                 </div>
 
                 <div>
-                  <select
-                    value={formData.timezone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="America/Chicago">Central Time (US & Canada)</option>
-                    <option value="America/Denver">Mountain Time (US & Canada)</option>
-                    <option value="America/New_York">Eastern Time (US & Canada)</option>
-                    <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
-                    <option value="Europe/London">London</option>
-                    <option value="Europe/Berlin">Berlin</option>
-                    <option value="Europe/Paris">Paris</option>
-                    <option value="Asia/Kolkata">Kolkata</option>
-                    <option value="Asia/Singapore">Singapore</option>
-                    <option value="Asia/Hong_Kong">Hong Kong</option>
-                    <option value="Asia/Taipei">Taipei</option>
-                    <option value="Asia/Seoul">Seoul</option>
-                    <option value="Asia/Tokyo">Tokyo</option>
-                  </select>
-                </div>
+  <label className="block text-sm font-medium text-gray-900 mb-1">
+    Timezone *
+  </label>
+  <select
+    value={formData.timezone}
+    onChange={(e) => setFormData(prev => ({ ...prev, timezone: e.target.value }))}
+    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-900 bg-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+    required
+  >
+    <option value="">Select a timezone...</option>
+    <option value="America/Chicago">Central Time (US & Canada)</option>
+    <option value="America/Denver">Mountain Time (US & Canada)</option>
+    <option value="America/New_York">Eastern Time (US & Canada)</option>
+    <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+    <option value="Europe/London">London</option>
+    <option value="Europe/Berlin">Berlin</option>
+    <option value="Europe/Paris">Paris</option>
+    <option value="Asia/Kolkata">Kolkata</option>
+    <option value="Asia/Singapore">Singapore</option>
+    <option value="Asia/Hong_Kong">Hong Kong</option>
+    <option value="Asia/Taipei">Taipei</option>
+    <option value="Asia/Seoul">Seoul</option>
+    <option value="Asia/Tokyo">Tokyo</option>
+  </select>
+</div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-900 mb-1">
