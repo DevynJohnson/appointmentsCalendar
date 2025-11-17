@@ -1,7 +1,7 @@
 // Provider dashboard statistics
 import { NextRequest, NextResponse } from 'next/server';
 import { ProviderAuthService } from '@/lib/provider-auth';
-import { withProviderContext } from '@/lib/db-rls';
+import { withProviderContext } from '@/lib/db';
 
 
 export async function GET(request: NextRequest) {
