@@ -19,7 +19,19 @@ export async function PUT(
     const provider = await ProviderAuthService.verifyToken(token);
     const { id } = await context.params;
 
-    const { city, stateProvince, country, description, startDate, endDate, isDefault } = await request.json();
+    // Add timezone, addressLine1, addressLine2 to destructuring
+    const { 
+      timezone, 
+      addressLine1, 
+      addressLine2, 
+      city, 
+      stateProvince, 
+      country, 
+      description, 
+      startDate, 
+      endDate, 
+      isDefault 
+    } = await request.json();
 
     // Validate required fields (dates not required for default locations)
     if (!city || !stateProvince || !country) {
@@ -71,6 +83,9 @@ export async function PUT(
         providerId: provider.id // Ensure provider owns this location
       },
       data: {
+        timezone,           // Add this
+        addressLine1,       // Add this
+        addressLine2,       // Add this
         city,
         stateProvince,
         country,
