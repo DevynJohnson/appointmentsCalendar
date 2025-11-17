@@ -174,60 +174,70 @@ function ClientBookingContent() {
   }, [fetchAvailabilityPreview]);
 
   const handleBookingSubmit = async () => {
-    if (!selectedSlot) return;
+  if (!selectedSlot) return;
 
-    setIsBooking(true);
-    try {
-      const isAutoSlot = selectedSlot.eventTitle === 'Available Appointment' || 
-                        selectedSlot.eventId?.startsWith('auto-') ||
-                        selectedSlot.type === 'automatic';
-      
-      const response = await secureFetch('/api/client/book-appointment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          eventId: isAutoSlot ? null : selectedSlot.eventId,
-          providerId: selectedSlot.provider.id,
-          scheduledAt: selectedSlot.startTime,
-          duration: selectedSlot.duration,
-          slotType: isAutoSlot ? 'automatic' : 'manual',
-          customer: {
-            firstName: bookingForm.firstName,
-            lastName: bookingForm.lastName,
-            email: bookingForm.email,
-            phone: bookingForm.phone,
-          },
-          serviceType: bookingForm.serviceType,
-          notes: bookingForm.notes,
-        }),
+  console.log('🔍 BOOKING SUBMISSION DEBUG');
+  console.log('Selected slot:', selectedSlot);
+  console.log('Slot start time:', selectedSlot.startTime);
+  console.log('Slot type:', selectedSlot.type);
+
+  setIsBooking(true);
+  try {
+    const isAutoSlot = selectedSlot.eventTitle === 'Available Appointment' || 
+                      selectedSlot.eventId?.startsWith('auto-') ||
+                      selectedSlot.type === 'automatic';
+    
+    const payload = {
+      eventId: isAutoSlot ? null : selectedSlot.eventId,
+      providerId: selectedSlot.provider.id,
+      scheduledAt: selectedSlot.startTime,
+      duration: selectedSlot.duration,
+      slotType: isAutoSlot ? 'automatic' : 'manual',
+      customer: {
+        firstName: bookingForm.firstName,
+        lastName: bookingForm.lastName,
+        email: bookingForm.email,
+        phone: bookingForm.phone,
+      },
+      serviceType: bookingForm.serviceType,
+      notes: bookingForm.notes,
+    };
+    
+    console.log('📤 Payload being sent:', payload);
+
+    // ADD THIS LINE - the actual fetch call
+    const response = await secureFetch('/api/client/book-appointment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+    
+    if (data.success) {
+      alert(data.message || 'Booking request submitted! Please check your email for a confirmation link.');
+      setSelectedSlot(null);
+      setBookingForm({
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        serviceType: 'consultation',
+        notes: '',
       });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(data.message || 'Booking request submitted! Please check your email for a confirmation link.');
-        setSelectedSlot(null);
-        setBookingForm({
-          firstName: '',
-          lastName: '',
-          email: '',
-          phone: '',
-          serviceType: 'consultation',
-          notes: '',
-        });
-        fetchAvailabilityPreview();
-      } else {
-        alert(`Booking failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Booking error:', error);
-      alert('Failed to book appointment. Please try again.');
-    } finally {
-      setIsBooking(false);
+      fetchAvailabilityPreview();
+    } else {
+      alert(`Booking failed: ${data.error}`);
     }
-  };
+  } catch (error) {
+    console.error('Booking error:', error);
+    alert('Failed to book appointment. Please try again.');
+  } finally {
+    setIsBooking(false);
+  }
+};
 
   const copyBookingLink = () => {
     const currentUrl = window.location.href;
