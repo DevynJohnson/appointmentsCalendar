@@ -82,23 +82,48 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
     } else if (slotType === 'automatic') {
-      // Handle automatic slot booking - verify the slot is actually available using AdvancedAvailabilityService
-      const appointmentTime = appointmentStart.toTimeString().slice(0, 5); // Get HH:MM format
-      const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(providerId, appointmentStart);
-      const requestedStartMinutes = parseInt(appointmentTime.split(':')[0], 10) * 60 + parseInt(appointmentTime.split(':')[1], 10);
-      const isAvailable = timeSlots.some((slot: { startTime: string; endTime: string; isEnabled: boolean; dayOfWeek: number }) => {
-        const slotStartMinutes = parseInt(slot.startTime.split(':')[0], 10) * 60 + parseInt(slot.startTime.split(':')[1], 10);
-        const slotEndMinutes = parseInt(slot.endTime.split(':')[0], 10) * 60 + parseInt(slot.endTime.split(':')[1], 10);
-        return slot.isEnabled &&
-          slotStartMinutes <= requestedStartMinutes &&
-          slotEndMinutes - requestedStartMinutes >= duration;
-      });
-
-      if (!isAvailable) {
-        return NextResponse.json({ 
-          error: 'Selected time slot is no longer available' 
-        }, { status: 400 });
+  // Handle automatic slot booking - verify the slot is actually available
+  
+  // First, get the provider's default availability template
+  const provider = await prisma.provider.findUnique({
+    where: { id: providerId },
+    include: {
+      availabilityTemplates: {
+        where: { isDefault: true },
+        select: { id: true },
+        take: 1
       }
+    }
+  });
+  
+  if (!provider || !provider.availabilityTemplates[0]) {
+    return NextResponse.json({ 
+      error: 'Provider availability template not found' 
+    }, { status: 404 });
+  }
+  
+  const templateId = provider.availabilityTemplates[0].id;
+  
+  // Now verify the slot is available using the correct templateId
+  const appointmentTime = appointmentStart.toTimeString().slice(0, 5); // Get HH:MM format
+  const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, appointmentStart);
+  const requestedStartMinutes = parseInt(appointmentTime.split(':')[0], 10) * 60 + parseInt(appointmentTime.split(':')[1], 10);
+  const requestedEndMinutes = requestedStartMinutes + duration;
+  
+  const isAvailable = timeSlots.some((slot: { startTime: string; endTime: string; isEnabled: boolean; dayOfWeek: number }) => {
+    const slotStartMinutes = parseInt(slot.startTime.split(':')[0], 10) * 60 + parseInt(slot.startTime.split(':')[1], 10);
+    const slotEndMinutes = parseInt(slot.endTime.split(':')[0], 10) * 60 + parseInt(slot.endTime.split(':')[1], 10);
+    return slot.isEnabled &&
+      slot.dayOfWeek === appointmentStart.getDay() && // Add day of week check
+      slotStartMinutes <= requestedStartMinutes &&
+      slotEndMinutes >= requestedEndMinutes; // Check end time fits too
+  });
+
+  if (!isAvailable) {
+    return NextResponse.json({ 
+      error: 'Selected time slot is no longer available' 
+    }, { status: 400 });
+  }
 
       // For automatic slots, create a virtual calendar event
       calendarEvent = {
