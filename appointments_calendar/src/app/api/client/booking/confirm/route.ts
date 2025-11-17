@@ -130,19 +130,30 @@ export async function GET(request: NextRequest) {
 
       // Send confirmation emails
       const bookingDetails = {
-        id: confirmedBooking.id,
-        customerName: `${confirmedBooking.customer.firstName || 'Unknown'} ${confirmedBooking.customer.lastName || 'Customer'}`,
-        customerEmail: confirmedBooking.customer.email,
-        providerName: confirmedBooking.provider.name,
-        providerEmail: confirmedBooking.provider.email,
-        scheduledAt: confirmedBooking.scheduledAt,
-        duration: confirmedBooking.duration,
-        serviceType: confirmedBooking.serviceType,
-        notes: confirmedBooking.notes || undefined,
-        location: confirmedBooking.calendarEvent?.location || undefined,
-      };
+  id: confirmedBooking.id,
+  customerName: `${confirmedBooking.customer.firstName || 'Unknown'} ${confirmedBooking.customer.lastName || 'Customer'}`,
+  customerEmail: confirmedBooking.customer.email,
+  providerName: confirmedBooking.provider.name,
+  providerEmail: confirmedBooking.provider.email,
+  scheduledAt: confirmedBooking.scheduledAt,
+  duration: confirmedBooking.duration,
+  serviceType: confirmedBooking.serviceType,
+  notes: confirmedBooking.notes || undefined,
+  location: confirmedBooking.calendarEvent?.location || undefined,
+};
 
-      await emailService.sendBookingConfirmation(bookingDetails);
+// Fetch provider timezone for email formatting
+const providerLocation = await prisma.providerLocation.findFirst({
+  where: { 
+    providerId: confirmedBooking.providerId,
+    isDefault: true 
+  },
+  select: { timezone: true }
+});
+
+const providerTimezone = providerLocation?.timezone || 'America/New_York';
+
+await emailService.sendBookingConfirmation(bookingDetails, providerTimezone);
 
       return NextResponse.json({
         success: true,

@@ -152,24 +152,35 @@ async function handleConfirmBooking(
 
     // Send confirmation emails to both parties
     const bookingDetails = {
-      id: updatedBooking.id,
-      customerName: `${updatedBooking.customer.firstName || 'Unknown'} ${updatedBooking.customer.lastName || 'Customer'}`,
-      customerEmail: updatedBooking.customer.email,
-      providerName: updatedBooking.provider.name,
-      providerEmail: updatedBooking.provider.email,
-      scheduledAt: updatedBooking.scheduledAt,
-      duration: updatedBooking.duration,
-      serviceType: updatedBooking.serviceType,
-      notes: updatedBooking.notes || undefined,
-      location: updatedBooking.calendarEvent?.location || undefined,
-    };
+  id: updatedBooking.id,
+  customerName: `${updatedBooking.customer.firstName || 'Unknown'} ${updatedBooking.customer.lastName || 'Customer'}`,
+  customerEmail: updatedBooking.customer.email,
+  providerName: updatedBooking.provider.name,
+  providerEmail: updatedBooking.provider.email,
+  scheduledAt: updatedBooking.scheduledAt,
+  duration: updatedBooking.duration,
+  serviceType: updatedBooking.serviceType,
+  notes: updatedBooking.notes || undefined,
+  location: updatedBooking.calendarEvent?.location || undefined,
+};
 
-    try {
-      await emailService.sendBookingConfirmation(bookingDetails);
-    } catch (error) {
-      console.error('Failed to send confirmation emails:', error);
-      // Don't fail the booking confirmation if email sending fails
-    }
+// Fetch provider timezone for email formatting
+const providerLocation = await prisma.providerLocation.findFirst({
+  where: { 
+    providerId: updatedBooking.providerId,
+    isDefault: true 
+  },
+  select: { timezone: true }
+});
+
+const providerTimezone = providerLocation?.timezone || 'America/New_York';
+
+try {
+  await emailService.sendBookingConfirmation(bookingDetails, providerTimezone);
+} catch (error) {
+  console.error('Failed to send confirmation emails:', error);
+  // Don't fail the booking confirmation if email sending fails
+}
 
     // Return different responses based on request method
     if (request.method === 'GET') {

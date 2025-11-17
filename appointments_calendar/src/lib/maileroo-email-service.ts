@@ -444,19 +444,19 @@ export class ZoneMeetEmailService {
   /**
    * 5. Confirmation to both client and provider after booking is confirmed
    */
-  async sendBookingConfirmation(booking: BookingDetails): Promise<void> {
-    const formattedDate = booking.scheduledAt.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    const formattedTime = booking.scheduledAt.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+  async sendBookingConfirmation(booking: BookingDetails, providerTimezone?: string): Promise<void> {
+  // Import date-fns-tz for timezone conversion
+  const { toZonedTime, format } = await import('date-fns-tz');
+  
+  // Use provider's timezone or default to Eastern
+  const timezone = providerTimezone || 'America/New_York';
+  
+  // Convert UTC time to provider's local timezone
+  const localScheduledAt = toZonedTime(booking.scheduledAt, timezone);
+  
+  // Format using date-fns format
+  const formattedDate = format(localScheduledAt, 'EEEE, MMMM d, yyyy', { timeZone: timezone });
+  const formattedTime = format(localScheduledAt, 'h:mm a', { timeZone: timezone });
 
     // Generate management tokens
     if (!process.env.JWT_SECRET) {
