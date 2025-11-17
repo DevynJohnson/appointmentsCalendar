@@ -335,19 +335,31 @@ export class ZoneMeetEmailService {
   /**
    * 4. Email to service provider about new booking request
    */
-  async sendBookingNotificationToProvider(booking: BookingDetails): Promise<void> {
-    const formattedDate = booking.scheduledAt.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    const formattedTime = booking.scheduledAt.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+  async sendBookingNotificationToProvider(booking: BookingDetails, providerTimezone?: string): Promise<void> {
+  // Import date-fns-tz for timezone conversion
+  const { toZonedTime } = await import('date-fns-tz');
+  
+  // Use provider's timezone or default to Eastern
+  const timezone = providerTimezone || 'America/New_York';
+  
+  // Convert UTC time to provider's local timezone
+  const localScheduledAt = toZonedTime(booking.scheduledAt, timezone);
+  
+  // Format date and time in provider's timezone
+  const formattedDate = localScheduledAt.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: timezone
+  });
+  
+  const formattedTime = localScheduledAt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: timezone
+  });
 
     // Generate direct action URLs for provider
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL;
