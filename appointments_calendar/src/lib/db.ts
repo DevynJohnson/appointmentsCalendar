@@ -2,18 +2,33 @@ import { PrismaClient } from '@prisma/client';
 
 // Global declaration for TypeScript
 declare global {
+  // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
 }
 
-// Create a singleton PrismaClient instance
+// Create a singleton PrismaClient instance with connection pool settings
 const prisma = globalThis.__prisma || new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL
+    }
+  }
 });
 
 // In development, save the instance to global to prevent hot reloads from creating new instances
 if (process.env.NODE_ENV === 'development') {
   globalThis.__prisma = prisma;
 }
+
+// Graceful shutdown
+const cleanup = async () => {
+  await prisma.$disconnect();
+};
+
+process.on('beforeExit', cleanup);
+process.on('SIGINT', cleanup);
+process.on('SIGTERM', cleanup);
 
 // Type for Prisma transaction client
 type PrismaTransaction = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
