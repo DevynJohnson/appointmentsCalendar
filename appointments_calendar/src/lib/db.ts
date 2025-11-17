@@ -2,7 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 // Global declaration for TypeScript
 declare global {
-  // eslint-disable-next-line no-var
   var __prisma: PrismaClient | undefined;
 }
 
