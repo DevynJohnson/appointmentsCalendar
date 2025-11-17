@@ -81,17 +81,18 @@ export async function POST(request: NextRequest) {
           error: 'Appointment time must be within the calendar event window' 
         }, { status: 400 });
       }
-    } else if (slotType === 'automatic') {
-  // Handle automatic slot booking - verify the slot is actually available
+
+} else if (slotType === 'automatic') {
   console.log('🔍 BOOKING DEBUG: Validating automatic slot');
   console.log('Provider ID:', providerId);
-  console.log('Appointment start:', appointmentStart.toISOString());
+  console.log('Appointment start (UTC):', appointmentStart.toISOString());
   console.log('Duration:', duration);
   
-  // First, get the provider's default availability template
-  const provider = await prisma.provider.findUnique({
+  // Fetch provider with template and location info for timezone
+  const providerWithTemplate = await prisma.provider.findUnique({
     where: { id: providerId },
-    include: {
+    select: {
+      id: true,
       availabilityTemplates: {
         where: { isDefault: true },
         select: { id: true },
@@ -100,30 +101,45 @@ export async function POST(request: NextRequest) {
     }
   });
   
-  console.log('Provider found:', !!provider);
-  console.log('Templates found:', provider?.availabilityTemplates.length);
+  // Fetch provider location separately for timezone
+  const providerLocation = await prisma.providerLocation.findFirst({
+    where: { 
+      providerId: providerId,
+      isDefault: true 
+    },
+    select: { timezone: true }
+  });
   
-  if (!provider || !provider.availabilityTemplates[0]) {
+  if (!providerWithTemplate || !providerWithTemplate.availabilityTemplates[0]) {
     console.log('❌ No template found for provider');
     return NextResponse.json({ 
       error: 'Provider availability template not found' 
     }, { status: 404 });
   }
   
-  const templateId = provider.availabilityTemplates[0].id;
-  console.log('Template ID:', templateId);
+  const templateId = providerWithTemplate.availabilityTemplates[0].id;
+  const providerTimezone = providerLocation?.timezone || 'America/New_York';
   
-  // Now verify the slot is available using the correct templateId
-  const appointmentTime = appointmentStart.toTimeString().slice(0, 5); // Get HH:MM format
-  const dayOfWeek = appointmentStart.getDay();
+  console.log('Template ID:', templateId);
+  console.log('Provider timezone:', providerTimezone);
+  
+  // Convert UTC time to provider's local timezone
+  const { toZonedTime } = await import('date-fns-tz');
+  const localAppointmentStart = toZonedTime(appointmentStart, providerTimezone);
+  
+  // Get HH:MM in provider's timezone
+  const appointmentTime = localAppointmentStart.toTimeString().slice(0, 5);
+  const dayOfWeek = localAppointmentStart.getDay();
+  
+  console.log('Local appointment time:', appointmentTime, 'Day:', dayOfWeek);
   console.log('Checking availability for:', { appointmentTime, dayOfWeek });
   
-  const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, appointmentStart);
+  const { timeSlots } = await AdvancedAvailabilityService.getEffectiveAvailabilityForDate(templateId, localAppointmentStart);
   console.log('Time slots returned:', JSON.stringify(timeSlots, null, 2));
   
   const requestedStartMinutes = parseInt(appointmentTime.split(':')[0], 10) * 60 + parseInt(appointmentTime.split(':')[1], 10);
   const requestedEndMinutes = requestedStartMinutes + duration;
-  console.log('Requested minutes:', { start: requestedStartMinutes, end: requestedEndMinutes });
+  console.log('Requested minutes (local):', { start: requestedStartMinutes, end: requestedEndMinutes });
   
   const isAvailable = timeSlots.some((slot: { startTime: string; endTime: string; isEnabled: boolean; dayOfWeek: number }) => {
     const slotStartMinutes = parseInt(slot.startTime.split(':')[0], 10) * 60 + parseInt(slot.startTime.split(':')[1], 10);
@@ -138,6 +154,10 @@ export async function POST(request: NextRequest) {
       requestedDay: dayOfWeek,
       slotStart: slot.startTime, 
       slotEnd: slot.endTime,
+      slotStartMin: slotStartMinutes,
+      slotEndMin: slotEndMinutes,
+      requestedStartMin: requestedStartMinutes,
+      requestedEndMin: requestedEndMinutes,
       enabled: slot.isEnabled,
       matches 
     });
@@ -150,12 +170,7 @@ export async function POST(request: NextRequest) {
   if (!isAvailable) {
     console.log('❌ Slot validation failed');
     return NextResponse.json({ 
-      error: 'Selected time slot is no longer available',
-      debug: {
-        requestedTime: appointmentTime,
-        requestedDay: dayOfWeek,
-        availableSlots: timeSlots
-      }
+      error: 'Selected time slot is no longer available'
     }, { status: 400 });
   }
   
