@@ -71,10 +71,8 @@ export async function GET(request: NextRequest) {
 
         case 'OUTLOOK':
         case 'outlook':
-        case 'TEAMS':
-        case 'teams':
-          const redirectUri = process.env.MICROSOFT_REDIRECT_URI!;
-          console.log('🔗 Token exchange redirect_uri:', redirectUri);
+          const OutlookRedirectUri = process.env.OUTLOOK_REDIRECT_URI!;
+          console.log('🔗 Token exchange redirect_uri:', OutlookRedirectUri);
           console.log('🆔 Using client_id:', process.env.MICROSOFT_CLIENT_ID);
           
           tokenResponse = await axios.post(
@@ -84,7 +82,28 @@ export async function GET(request: NextRequest) {
               client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
               code,
               grant_type: 'authorization_code',
-              redirect_uri: redirectUri,
+              redirect_uri: OutlookRedirectUri,
+            }),
+            {
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            }
+          );
+          break;
+
+        case 'TEAMS':
+        case 'teams':
+          const TeamsRedirectUri = process.env.TEAMS_REDIRECT_URI!;
+          console.log('🔗 Token exchange redirect_uri:', TeamsRedirectUri);
+          console.log('🆔 Using client_id:', process.env.MICROSOFT_CLIENT_ID);
+          
+          tokenResponse = await axios.post(
+            'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+            new URLSearchParams({
+              client_id: process.env.MICROSOFT_CLIENT_ID!,
+              client_secret: process.env.MICROSOFT_CLIENT_SECRET!,
+              code,
+              grant_type: 'authorization_code',
+              redirect_uri: TeamsRedirectUri,
             }),
             {
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
