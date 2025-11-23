@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { secureFetch } from '@/lib/csrf';
+import { secureFetch, getCSRFToken } from '@/lib/csrf';
+
 import QuickStartGuide from '@/components/QuickStartGuide';
 
 async function checkQuickStartCompletion(
