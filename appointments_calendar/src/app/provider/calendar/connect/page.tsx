@@ -21,7 +21,6 @@ interface CalendarConnection {
   isActive: boolean;
   lastSyncAt: string | null;
   syncFrequency: number;
-
   createdAt: string;
   accessToken?: string;
   isDefaultForBookings?: boolean;
@@ -46,7 +45,6 @@ export default function CalendarConnectPage() {
   useEffect(() => {
     const storedEmail = localStorage.getItem('currentProviderEmail');
     if (storedEmail !== currentProviderEmail) {
-      // Provider changed, clear all state
       setAuthUrls(null);
       setConnections([]);
       setError('');
@@ -64,7 +62,6 @@ export default function CalendarConnectPage() {
         return;
       }
 
-      // Load authentication URLs
       const authResponse = await fetch('/api/provider/calendar/auth-urls', {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -76,7 +73,6 @@ export default function CalendarConnectPage() {
       const authData = await authResponse.json();
       setAuthUrls(authData);
 
-      // Load existing connections with cache-busting
       const timestamp = Date.now();
       const connectionsResponse = await fetch(`/api/provider/calendar/connections?t=${timestamp}`, {
         headers: { 
@@ -100,13 +96,11 @@ export default function CalendarConnectPage() {
   useEffect(() => {
     loadData();
     
-    // Check for success/error parameters in URL
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const error = urlParams.get('error');
     
     if (success === 'google_connected') {
-      // Show success message and redirect to dashboard after a short delay
       setTimeout(() => {
         router.push('/provider/dashboard');
       }, 2000);
@@ -157,10 +151,7 @@ export default function CalendarConnectPage() {
         throw new Error('Failed to disconnect calendar');
       }
 
-      // Reload the page to refresh the connections list
       await loadData();
-      
-      // Show success message (you could replace this with a toast notification)
       alert(`${platform} calendar disconnected successfully`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to disconnect calendar');
@@ -188,9 +179,9 @@ export default function CalendarConnectPage() {
     apple: 'Connect your Apple iCloud calendar (requires App-Specific Password)',
   };
 
-  // Helper function to get connection for platform
-  const getConnectionForPlatform = (platform: string) => {
-    return connections.find(conn => conn.platform.toLowerCase() === platform.toLowerCase());
+  // Updated helper function to get ALL connections for a platform
+  const getConnectionsForPlatform = (platform: string) => {
+    return connections.filter(conn => conn.platform.toLowerCase() === platform.toLowerCase());
   };
 
   if (loading) {
@@ -206,7 +197,6 @@ export default function CalendarConnectPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
@@ -225,7 +215,6 @@ export default function CalendarConnectPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Success message */}
         {new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('success') === 'google_connected' && (
           <div className="mb-6 bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded">
             ✅ Google Calendar connected successfully! Redirecting to dashboard...
@@ -251,28 +240,32 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.outlook}
                 </p>
                 <div className="mt-4">
-                  {getConnectionForPlatform('outlook') && (
-                    <div className="mb-3">
-                      <div className="text-sm text-green-600 flex items-center mb-2">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Connected ({getConnectionForPlatform('outlook')?.email})
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('outlook')?.id}`)}
-                          className="inline-flex items-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 transition-colors"
-                        >
-                          Manage Calendar
-                        </button>
-                        <button
-                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('outlook')?.id || '', 'Outlook')}
-                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
+                  {getConnectionsForPlatform('outlook').length > 0 && (
+                    <div className="mb-3 space-y-2">
+                      {getConnectionsForPlatform('outlook').map((connection) => (
+                        <div key={connection.id} className="border border-green-200 bg-green-50 rounded p-2">
+                          <div className="text-sm text-green-600 flex items-center mb-1">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Connected: {connection.email}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => router.push(`/provider/calendar/manage/${connection.id}`)}
+                              className="inline-flex items-center px-3 py-1 border border-blue-600 text-xs font-medium rounded text-blue-600 bg-white hover:bg-blue-50 transition-colors"
+                            >
+                              Manage
+                            </button>
+                            <button
+                              onClick={() => handleDisconnectCalendar(connection.id, 'Outlook')}
+                              className="inline-flex items-center px-3 py-1 border border-red-600 text-xs font-medium rounded text-red-600 bg-white hover:bg-red-50 transition-colors"
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {authUrls?.outlook ? (
@@ -280,7 +273,7 @@ export default function CalendarConnectPage() {
                       href={authUrls.outlook}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                     >
-                      Connect Outlook
+                      {getConnectionsForPlatform('outlook').length > 0 ? '+ Add Another Outlook' : 'Connect Outlook'}
                     </a>
                   ) : (
                     <button
@@ -307,28 +300,32 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.teams}
                 </p>
                 <div className="mt-4">
-                  {getConnectionForPlatform('teams') && (
-                    <div className="mb-3">
-                      <div className="text-sm text-green-600 flex items-center mb-2">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Connected ({getConnectionForPlatform('teams')?.email})
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('teams')?.id}`)}
-                          className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50 transition-colors"
-                        >
-                          Manage Calendar
-                        </button>
-                        <button
-                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('teams')?.id || '', 'Teams')}
-                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
+                  {getConnectionsForPlatform('teams').length > 0 && (
+                    <div className="mb-3 space-y-2">
+                      {getConnectionsForPlatform('teams').map((connection) => (
+                        <div key={connection.id} className="border border-green-200 bg-green-50 rounded p-2">
+                          <div className="text-sm text-green-600 flex items-center mb-1">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Connected: {connection.email}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => router.push(`/provider/calendar/manage/${connection.id}`)}
+                              className="inline-flex items-center px-3 py-1 border border-purple-600 text-xs font-medium rounded text-purple-600 bg-white hover:bg-purple-50 transition-colors"
+                            >
+                              Manage
+                            </button>
+                            <button
+                              onClick={() => handleDisconnectCalendar(connection.id, 'Teams')}
+                              className="inline-flex items-center px-3 py-1 border border-red-600 text-xs font-medium rounded text-red-600 bg-white hover:bg-red-50 transition-colors"
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {authUrls?.teams ? (
@@ -336,7 +333,7 @@ export default function CalendarConnectPage() {
                       href={authUrls.teams}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 transition-colors"
                     >
-                      Connect Teams
+                      {getConnectionsForPlatform('teams').length > 0 ? '+ Add Another Teams' : 'Connect Teams'}
                     </a>
                   ) : (
                     <button
@@ -363,28 +360,32 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.google}
                 </p>
                 <div className="mt-4">
-                  {getConnectionForPlatform('google') && (
-                    <div className="mb-3">
-                      <div className="text-sm text-green-600 flex items-center mb-2">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Connected ({getConnectionForPlatform('google')?.email})
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('google')?.id}`)}
-                          className="inline-flex items-center px-4 py-2 border border-green-600 text-sm font-medium rounded-md text-green-600 bg-white hover:bg-green-50 transition-colors"
-                        >
-                          Manage Calendar
-                        </button>
-                        <button
-                          onClick={() => handleDisconnectCalendar(getConnectionForPlatform('google')?.id || '', 'Google')}
-                          className="inline-flex items-center px-4 py-2 border border-red-600 text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50 transition-colors"
-                        >
-                          Disconnect
-                        </button>
-                      </div>
+                  {getConnectionsForPlatform('google').length > 0 && (
+                    <div className="mb-3 space-y-2">
+                      {getConnectionsForPlatform('google').map((connection) => (
+                        <div key={connection.id} className="border border-green-200 bg-green-50 rounded p-2">
+                          <div className="text-sm text-green-600 flex items-center mb-1">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Connected: {connection.email}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => router.push(`/provider/calendar/manage/${connection.id}`)}
+                              className="inline-flex items-center px-3 py-1 border border-green-600 text-xs font-medium rounded text-green-600 bg-white hover:bg-green-50 transition-colors"
+                            >
+                              Manage
+                            </button>
+                            <button
+                              onClick={() => handleDisconnectCalendar(connection.id, 'Google')}
+                              className="inline-flex items-center px-3 py-1 border border-red-600 text-xs font-medium rounded text-red-600 bg-white hover:bg-red-50 transition-colors"
+                            >
+                              Disconnect
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {authUrls?.google ? (
@@ -392,7 +393,7 @@ export default function CalendarConnectPage() {
                       href={authUrls.google}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 transition-colors"
                     >
-                      Connect Google
+                      {getConnectionsForPlatform('google').length > 0 ? '+ Add Another Google' : 'Connect Google'}
                     </a>
                   ) : (
                     <button
@@ -419,20 +420,24 @@ export default function CalendarConnectPage() {
                   {platformDescriptions.apple}
                 </p>
                 <div className="mt-4">
-                  {getConnectionForPlatform('apple') && (
-                    <div className="mb-3">
-                      <div className="text-sm text-green-600 flex items-center mb-2">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                        </svg>
-                        Connected ({getConnectionForPlatform('apple')?.email})
-                      </div>
-                      <button
-                        onClick={() => router.push(`/provider/calendar/manage/${getConnectionForPlatform('apple')?.id}`)}
-                        className="inline-flex items-center px-4 py-2 border border-gray-800 text-sm font-medium rounded-md text-gray-800 bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        Manage Calendar
-                      </button>
+                  {getConnectionsForPlatform('apple').length > 0 && (
+                    <div className="mb-3 space-y-2">
+                      {getConnectionsForPlatform('apple').map((connection) => (
+                        <div key={connection.id} className="border border-green-200 bg-green-50 rounded p-2">
+                          <div className="text-sm text-green-600 flex items-center mb-1">
+                            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                            </svg>
+                            Connected: {connection.email}
+                          </div>
+                          <button
+                            onClick={() => router.push(`/provider/calendar/manage/${connection.id}`)}
+                            className="inline-flex items-center px-3 py-1 border border-gray-800 text-xs font-medium rounded text-gray-800 bg-white hover:bg-gray-50 transition-colors"
+                          >
+                            Manage
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                   {!showAppleForm ? (
@@ -440,7 +445,7 @@ export default function CalendarConnectPage() {
                       onClick={() => setShowAppleForm(true)}
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-900 transition-colors"
                     >
-                      Connect Apple Calendar
+                      {getConnectionsForPlatform('apple').length > 0 ? '+ Add Another Apple' : 'Connect Apple Calendar'}
                     </button>
                   ) : (
                     <form onSubmit={handleConnectApple} className="space-y-3">
