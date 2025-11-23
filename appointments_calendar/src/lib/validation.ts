@@ -308,13 +308,19 @@ export function validateSecurityHeaders(request: Request): {
   // Check for required security headers in POST/PUT/DELETE requests
   if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(request.method)) {
     const contentType = request.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
+    
+    // More lenient Content-Type check - allow if it starts with application/json
+    if (contentType && !contentType.toLowerCase().startsWith('application/json')) {
       errors.push('Invalid Content-Type header');
     }
+    // Don't require Content-Type for requests without body (like some DELETE requests)
     
-    const csrfToken = request.headers.get('x-csrf-token');
+    const csrfToken = request.headers.get('x-csrf-token') || request.headers.get('X-CSRF-Token');
     if (!csrfToken) {
       errors.push('Missing CSRF token');
+    } else if (csrfToken.length < 32) {
+      // Basic validation - CSRF tokens should be at least 32 characters
+      errors.push('Invalid CSRF token format');
     }
   }
   
