@@ -62,6 +62,7 @@ export default function Nav({ type = 'public' }: NavProps) {
           if (currentProviderEmail) {
             localStorage.removeItem(`providerToken_${currentProviderEmail}`);
           }
+          clearCSRFToken();
           setUser(null);
         }
       } catch (error) {
@@ -76,6 +77,7 @@ export default function Nav({ type = 'public' }: NavProps) {
         if (currentProviderEmail) {
           localStorage.removeItem(`providerToken_${currentProviderEmail}`);
         }
+        clearCSRFToken();
         setUser(null);
       } finally {
         setIsLoading(false);
