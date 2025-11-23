@@ -413,44 +413,43 @@ export class CalendarConnectionService {
   /**
    * Get OAuth authorization URLs with provider context (includes state parameter)
    */
-  static getAuthUrlsWithProvider(providerId: string) {
-    const outlookStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'outlook' }));
-    const teamsStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'teams' }));
-    const googleStateParam = encodeURIComponent(JSON.stringify({ providerId }));
-    
-    const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
-      `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read')}&` +
-      `state=${outlookStateParam}&` +
-      `response_mode=query`;
+static getAuthUrlsWithProvider(providerId: string) {
+  const outlookStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'outlook' }));
+  const teamsStateParam = encodeURIComponent(JSON.stringify({ providerId, platform: 'teams' }));
+  const googleStateParam = encodeURIComponent(JSON.stringify({ providerId }));
+  
+  const outlookAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+    `client_id=${process.env.OUTLOOK_CLIENT_ID}&` +
+    `response_type=code&` +
+    `redirect_uri=${encodeURIComponent(process.env.OUTLOOK_REDIRECT_URI!)}&` +
+    `scope=${encodeURIComponent('https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&` +
+    `state=${outlookStateParam}&` +
+    `response_mode=query`;
 
-    const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
-      `client_id=${process.env.TEAMS_CLIENT_ID}&` +
-      `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://graph.microsoft.com/calendars.read https://graph.microsoft.com/onlineMeetings.read')}&` +
-      `state=${teamsStateParam}&` +
-      `response_mode=query`;
+  const teamsAuthUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?` +
+    `client_id=${process.env.TEAMS_CLIENT_ID}&` +
+    `response_type=code&` +
+    `redirect_uri=${encodeURIComponent(process.env.TEAMS_REDIRECT_URI!)}&` +
+    `scope=${encodeURIComponent('https://graph.microsoft.com/Calendars.Read https://graph.microsoft.com/Calendars.ReadWrite https://graph.microsoft.com/User.Read offline_access')}&` +
+    `state=${teamsStateParam}&` +
+    `response_mode=query`;
 
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
-      `response_type=code&` +
-      `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI!)}&` +
-      `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}&` +
-      `state=${googleStateParam}&` +
-      `access_type=offline&` +
-      `prompt=consent`;
+  const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+    `client_id=${process.env.GOOGLE_CLIENT_ID}&` +
+    `response_type=code&` +
+    `redirect_uri=${encodeURIComponent(process.env.GOOGLE_REDIRECT_URI!)}&` +
+    `scope=${encodeURIComponent('https://www.googleapis.com/auth/calendar.readonly')}&` +
+    `state=${googleStateParam}&` +
+    `access_type=offline&` +
+    `prompt=consent`;
 
-    return {
-      outlook: outlookAuthUrl,
-      teams: teamsAuthUrl,
-      google: googleAuthUrl,
-      // Apple uses a different authentication method (App-specific passwords)
-      apple: null,
-    };
-  }
+  return {
+    outlook: outlookAuthUrl,
+    teams: teamsAuthUrl,
+    google: googleAuthUrl,
+    apple: null,
+  };
+}
 
   /**
    * Fetch available calendars for Google

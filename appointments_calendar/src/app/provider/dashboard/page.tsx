@@ -315,33 +315,32 @@ export default function ProviderDashboard() {
   }, [connections, defaultCalendar]);
 
   const handleUpdateDefaultCalendar = async () => {
-    if (!selectedPlatform || !selectedCalendarId) return;
+  if (!selectedPlatform || !selectedCalendarId) return;
 
-    try {
-      const token = localStorage.getItem('providerToken');
-      const response = await fetch('/api/provider/calendar/default', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          platform: selectedPlatform,
-          calendarId: selectedCalendarId,
-        }),
-      });
+  try {
+    const token = localStorage.getItem('providerToken');
+    const response = await secureFetch('/api/provider/calendar/default', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        platform: selectedPlatform,
+        calendarId: selectedCalendarId,
+      }),
+    });
 
-      if (response.ok) {
-        // Reload default calendar data to get updated info
-        await loadDefaultCalendar();
-      } else {
-        throw new Error('Failed to update default calendar');
-      }
-    } catch (err) {
-      console.error('Error updating default calendar:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update default calendar');
+    if (response.ok) {
+      await loadDefaultCalendar();
+    } else {
+      throw new Error('Failed to update default calendar');
     }
-  };
+  } catch (err) {
+    console.error('Error updating default calendar:', err);
+    setError(err instanceof Error ? err.message : 'Failed to update default calendar');
+  }
+};
 
   const handleSyncCalendars = async () => {
     try {
