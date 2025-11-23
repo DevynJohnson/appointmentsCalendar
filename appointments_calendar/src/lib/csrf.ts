@@ -3,21 +3,15 @@
  */
 
 let csrfToken: string | null = null;
-let tokenExpiry: number = 0;
 let tokenPromise: Promise<string> | null = null;
 
 /**
  * Get CSRF token from server
+ * Always fetches fresh to ensure it matches the httpOnly cookie
  */
 export async function getCSRFToken(forceRefresh = false): Promise<string> {
-  // Return cached token if still valid (refresh 5 minutes before expiry)
-  const now = Date.now();
-  if (!forceRefresh && csrfToken && now < tokenExpiry - (5 * 60 * 1000)) {
-    return csrfToken;
-  }
-
   // If a token fetch is already in progress, wait for it
-  if (tokenPromise) {
+  if (tokenPromise && !forceRefresh) {
     return tokenPromise;
   }
 
@@ -35,7 +29,6 @@ export async function getCSRFToken(forceRefresh = false): Promise<string> {
 
       const data = await response.json();
       csrfToken = data.csrfToken;
-      tokenExpiry = now + (23 * 60 * 60 * 1000);
 
       if (!csrfToken) {
         throw new Error('Server returned empty CSRF token');
@@ -46,7 +39,6 @@ export async function getCSRFToken(forceRefresh = false): Promise<string> {
       console.error('Failed to fetch CSRF token:', error);
       // Clear the failed token
       csrfToken = null;
-      tokenExpiry = 0;
       throw new Error('Could not obtain CSRF token');
     } finally {
       tokenPromise = null;
@@ -123,6 +115,5 @@ export async function secureFetch(url: string, options: RequestInit = {}): Promi
  */
 export function clearCSRFToken(): void {
   csrfToken = null;
-  tokenExpiry = 0;
   tokenPromise = null;
 }

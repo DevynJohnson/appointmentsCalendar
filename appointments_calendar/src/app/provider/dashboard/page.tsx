@@ -3,8 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { secureFetch, getCSRFToken } from '@/lib/csrf';
-
+import { secureFetch } from '@/lib/csrf';
 import QuickStartGuide from '@/components/QuickStartGuide';
 
 async function checkQuickStartCompletion(
@@ -315,37 +314,26 @@ export default function ProviderDashboard() {
     }
   }, [connections, defaultCalendar]);
 
- const handleUpdateDefaultCalendar = async () => {
+  const handleUpdateDefaultCalendar = async () => {
   if (!selectedPlatform || !selectedCalendarId) return;
 
   try {
     const token = localStorage.getItem('providerToken');
-    
-    // Get CSRF token first
-    const csrfToken = await getCSRFToken();
-    console.log('🔑 Got CSRF token:', csrfToken.substring(0, 20) + '...');
-    
-    const response = await fetch('/api/provider/calendar/default', {
+    const response = await secureFetch('/api/provider/calendar/default', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'X-CSRF-Token': csrfToken, // Explicitly add it
+        Authorization: `Bearer ${token}`,
       },
-      credentials: 'include',
       body: JSON.stringify({
         platform: selectedPlatform,
         calendarId: selectedCalendarId,
       }),
     });
 
-    console.log('📥 Response status:', response.status);
-
     if (response.ok) {
       await loadDefaultCalendar();
     } else {
-      const error = await response.json();
-      console.error('❌ Error response:', error);
       throw new Error('Failed to update default calendar');
     }
   } catch (err) {
