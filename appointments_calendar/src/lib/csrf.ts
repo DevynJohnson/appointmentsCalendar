@@ -77,7 +77,13 @@ export async function getSecureHeaders(additionalHeaders: Record<string, string>
  * Automatically retries once with a fresh token if CSRF validation fails
  */
 export async function secureFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  // Debug: Log what we're about to send
+  console.log('🔍 secureFetch called for:', url);
+  
   const headers = await getSecureHeaders(options.headers as Record<string, string> || {});
+  
+  // Debug: Check if CSRF token is in headers
+  console.log('🔑 CSRF Token in headers:', headers.get('X-CSRF-Token')?.substring(0, 20) + '...');
   
   const response = await fetch(url, {
     ...options,
@@ -85,21 +91,30 @@ export async function secureFetch(url: string, options: RequestInit = {}): Promi
     credentials: 'include',
   });
 
+  // Debug: Log response
+  console.log('📥 Response status:', response.status);
+
   // If we get a CSRF error, try once more with a fresh token
-  if (response.status === 403) {
+  if (response.status === 403 || response.status === 400) {
     try {
       const errorData = await response.clone().json();
+      console.log('❌ Error response:', errorData);
+      
       if (errorData.error?.includes('CSRF') || errorData.error?.includes('token')) {
-        console.warn('CSRF token invalid, refreshing and retrying...');
+        console.warn('🔄 CSRF token invalid, refreshing and retrying...');
         
         // Force refresh the token
-        const freshHeaders = new Headers(options.headers as Record<string, string> || {});
         const freshToken = await getCSRFToken(true);
+        console.log('🆕 Fresh token:', freshToken.substring(0, 20) + '...');
+        
+        const freshHeaders = new Headers(options.headers as Record<string, string> || {});
         freshHeaders.set('X-CSRF-Token', freshToken);
         
         if (!freshHeaders.has('Content-Type')) {
           freshHeaders.set('Content-Type', 'application/json');
         }
+        
+        console.log('🔄 Retrying with fresh token...');
         
         // Retry with fresh token
         return fetch(url, {
@@ -108,13 +123,13 @@ export async function secureFetch(url: string, options: RequestInit = {}): Promi
           credentials: 'include',
         });
       }
-    } catch {
-      // If we can't parse the error, just return the original response
+    } catch (parseError) {
+      console.error('Failed to parse error response:', parseError);
     }
   }
   
   return response;
-}
+};
 
 /**
  * Clear cached CSRF token (useful for logout)
