@@ -716,18 +716,18 @@ export default function ManageLocationPage() {
                   <div className={`border rounded-lg p-4 hover:bg-gray-50 ${
                     location.isDefault ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
                   }`}>
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-gray-900">
+                    <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-gray-900 break-words">
                             {location.city}, {location.stateProvince}, {location.country}
                           </h3>
                           {location.isDefault && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium">
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 font-medium whitespace-nowrap">
                               ⭐ Default
                             </span>
                           )}
-                          <span className={`px-2 py-1 text-xs rounded-full ${
+                          <span className={`px-2 py-1 text-xs rounded-full whitespace-nowrap ${
                             location.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                           }`}>
                             {location.isActive ? 'Active' : 'Inactive'}
@@ -735,19 +735,19 @@ export default function ManageLocationPage() {
                         </div>
                         
                         {location.description && (
-                          <p className="text-gray-600 text-sm mb-2">{location.description}</p>
+                          <p className="text-gray-600 text-sm mb-2 break-words">{location.description}</p>
                         )}
                         
                         <div className="text-sm text-gray-500">
                           {location.isDefault ? (
                             <span>Permanent location</span>
                           ) : (
-                            <span>📅 {new Date(location.startDate).toLocaleDateString()} - {new Date(location.endDate).toLocaleDateString()}</span>
+                            <span className="break-words">📅 {new Date(location.startDate).toLocaleDateString()} - {new Date(location.endDate).toLocaleDateString()}</span>
                           )}
                         </div>
                       </div>
                       
-                      <div className="flex gap-2 ml-4">
+                      <div className="flex flex-wrap gap-2 lg:ml-4">
                         <button
                           onClick={() => {
                             const isExpanded = selectedLocationId === location.id;
@@ -756,27 +756,27 @@ export default function ManageLocationPage() {
                               fetchLocationSchedules(location.id);
                             }
                           }}
-                          className="text-purple-600 hover:text-purple-800 font-medium text-sm"
+                          className="text-purple-600 hover:text-purple-800 font-medium text-sm whitespace-nowrap"
                         >
                           {selectedLocationId === location.id ? 'Hide Schedules' : 'Manage Schedules'}
                         </button>
                         {!location.isDefault && (
                           <button
                             onClick={() => handleSetDefault(location.id)}
-                            className="text-orange-600 hover:text-orange-800 font-medium text-sm"
+                            className="text-orange-600 hover:text-orange-800 font-medium text-sm whitespace-nowrap"
                           >
                             Set Default
                           </button>
                         )}
                         <button
                           onClick={() => handleEdit(location)}
-                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm whitespace-nowrap"
                         >
                           Edit
                         </button>
                         <button
                           onClick={() => handleDelete(location.id)}
-                          className="text-red-600 hover:text-red-800 font-medium text-sm"
+                          className="text-red-600 hover:text-red-800 font-medium text-sm whitespace-nowrap"
                         >
                           Delete
                         </button>
