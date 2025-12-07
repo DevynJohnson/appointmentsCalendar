@@ -16,7 +16,7 @@
   "dependencies": {
     "@azure/msal-node": "^3.7.1",
     "@prisma/client": "^6.19.0",
-    "@sentry/nextjs": "^10.22.0",
+    "@sentry/nextjs": "^10.27.0",
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
