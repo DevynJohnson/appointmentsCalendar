@@ -22,7 +22,12 @@ export async function GET(request: NextRequest) {
         // Explicitly filter by provider ID to ensure data isolation
     const events = await withProviderContext(provider.id, async (tx) => {
       return await tx.calendarEvent.findMany({
-        where: { providerId: provider.id }, // Explicit filtering for security
+        where: { 
+          providerId: provider.id, // Explicit filtering for security
+          endTime: {
+            gte: new Date() // Only get events that haven't ended yet
+          }
+        },
         include: {
           connection: {
             select: {
